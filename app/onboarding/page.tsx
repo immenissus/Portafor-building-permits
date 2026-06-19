@@ -51,7 +51,13 @@ export default function OnboardingPage() {
     setSubmitting(true);
     try {
       const subscriber = await upsertSubscriber({ ...form.getValues(), service_area: serviceArea }, await getTokenOrThrow(getToken));
-      await user?.update({ unsafeMetadata: { ...user.unsafeMetadata, subscriberId: subscriber.id } });
+      await user?.update({ 
+        unsafeMetadata: { 
+          ...user.unsafeMetadata, 
+          subscriberId: subscriber.id,
+          apiKey: subscriber.api_key 
+        } 
+      });
       router.replace("/dashboard");
     } catch (error) {
       toast({ title: "Something went wrong - try again", description: error instanceof Error ? error.message : undefined });

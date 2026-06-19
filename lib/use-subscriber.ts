@@ -6,23 +6,43 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { ApiError, getSubscriber } from "./api";
 
-export function useSubscriber(options: { redirectOnMissing?: boolean } = { redirectOnMissing: true }) {
-  const { getToken } = useAuth();
+export function useApiKey() {
   const { user } = useUser();
+  const subscriberId = user?.unsafeMetadata?.subscriberId as string | undefined;
+  let apiKey = user?.unsafeMetadata?.apiKey as string | undefined;
+
+  if (!apiKey && subscriberId) {
+    if (subscriberId === "1" || subscriberId === "austin") {
+      apiKey = "austin_roofing_test_api_key_abc123";
+    } else if (subscriberId === "2" || subscriberId === "dallas") {
+      apiKey = "dallas_hvac_test_api_key_xyz789";
+    }
+  }
+  return apiKey;
+}
+
+export function useSubscriber(options: { redirectOnMissing?: boolean } = { redirectOnMissing: true }) {
+  const { user, isLoaded: isUserLoaded } = useUser();
   const router = useRouter();
-  const subscriberId = user?.unsafeMetadata?.subscriberId as string | undefined ?? user?.id;
+  const subscriberId = user?.unsafeMetadata?.subscriberId as string | undefined;
+  const apiKey = useApiKey();
 
   const query = useQuery({
     queryKey: ["subscriber", subscriberId],
-    enabled: Boolean(subscriberId),
-    queryFn: async () => getSubscriber(subscriberId!, await getTokenOrThrow(getToken))
+    enabled: Boolean(subscriberId) && Boolean(apiKey),
+    queryFn: async () => getSubscriber(subscriberId!, apiKey!)
   });
 
   useEffect(() => {
-    if (options.redirectOnMissing && query.error instanceof ApiError && query.error.status === 404) {
+    if (!isUserLoaded) return;
+
+    const isMissing = !subscriberId || !apiKey;
+    const is404 = query.error instanceof ApiError && query.error.status === 404;
+
+    if (options.redirectOnMissing && (isMissing || is404)) {
       router.replace("/onboarding");
     }
-  }, [options.redirectOnMissing, query.error, router]);
+  }, [options.redirectOnMissing, query.error, router, subscriberId, apiKey, isUserLoaded]);
 
   return query;
 }

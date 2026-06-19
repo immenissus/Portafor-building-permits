@@ -21,6 +21,7 @@ export type Subscriber = {
   service_area: ServiceArea;
   created_at: string;
   recent_alerts: Alert[];
+  api_key?: string;
 };
 
 export type Filing = Omit<Alert, "raw_data">;

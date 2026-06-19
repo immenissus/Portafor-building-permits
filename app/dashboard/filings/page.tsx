@@ -2,7 +2,6 @@
 
 import dynamic from "next/dynamic";
 import { useState } from "react";
-import { useAuth } from "@clerk/nextjs";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LocateFixed, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -15,14 +14,14 @@ import { useToast } from "@/components/ui/toast";
 import { filingSearchSchema } from "@/lib/schemas";
 import type { Filing } from "@/lib/types";
 import { geocodeAddress, searchFilings } from "@/lib/api";
-import { getTokenOrThrow } from "@/lib/use-subscriber";
+import { useApiKey } from "@/lib/use-subscriber";
 
 const FilingsMap = dynamic(() => import("@/components/map/filings-map").then((module) => module.FilingsMap), { ssr: false });
 
 type FormValues = z.infer<typeof filingSearchSchema>;
 
 export default function FilingsPage() {
-  const { getToken } = useAuth();
+  const apiKey = useApiKey();
   const { toast } = useToast();
   const [filings, setFilings] = useState<Filing[]>([]);
   const [center, setCenter] = useState<[number, number]>([-98.5795, 39.8283]);
@@ -37,9 +36,10 @@ export default function FilingsPage() {
   async function submit(values: FormValues) {
     setLoading(true);
     try {
+      if (!apiKey) throw new Error("API Key is missing. Please sign in again or onboard.");
       const point = await geocodeAddress(values.address);
       setCenter([point.lng, point.lat]);
-      setFilings(await searchFilings({ ...point, radiusKm: values.radiusKm, type: values.type }, await getTokenOrThrow(getToken)));
+      setFilings(await searchFilings({ ...point, radiusKm: values.radiusKm, type: values.type }, apiKey));
     } catch (error) {
       toast({ title: "Something went wrong - try again", description: error instanceof Error ? error.message : undefined });
     } finally {
@@ -54,7 +54,8 @@ export default function FilingsPage() {
         setCenter([point.lng, point.lat]);
         form.setValue("address", "Current location");
         try {
-          setFilings(await searchFilings({ ...point, radiusKm: form.getValues("radiusKm"), type: form.getValues("type") }, await getTokenOrThrow(getToken)));
+          if (!apiKey) throw new Error("API Key is missing. Please sign in again or onboard.");
+          setFilings(await searchFilings({ ...point, radiusKm: form.getValues("radiusKm"), type: form.getValues("type") }, apiKey));
         } catch (error) {
           toast({ title: "Something went wrong - try again", description: error instanceof Error ? error.message : undefined });
         }

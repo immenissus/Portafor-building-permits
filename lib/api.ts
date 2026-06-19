@@ -26,17 +26,22 @@ async function parseResponse<T>(response: Response): Promise<T> {
 export async function apiFetch<T>(
   path: string,
   token: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  options: { isApiKey?: boolean } = { isApiKey: true }
 ): Promise<T> {
   if (!apiUrl) {
     throw new ApiError(500, "NEXT_PUBLIC_API_URL is not configured");
   }
 
+  const authHeader: Record<string, string> = options.isApiKey
+    ? { "X-Subscriber-Key": token }
+    : { Authorization: `Bearer ${token}` };
+
   const response = await fetch(`${apiUrl}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      ...authHeader,
       ...init.headers
     }
   });
@@ -45,14 +50,14 @@ export async function apiFetch<T>(
 }
 
 export function getSubscriber(id: string, token: string) {
-  return apiFetch<Subscriber>(`/subscribers/${id}`, token);
+  return apiFetch<Subscriber>(`/subscribers/${id}`, token, {}, { isApiKey: true });
 }
 
 export function upsertSubscriber(payload: SubscriberPayload, token: string) {
   return apiFetch<Subscriber>("/subscribers", token, {
     method: "POST",
     body: JSON.stringify(payload)
-  });
+  }, { isApiKey: false });
 }
 
 export function searchFilings(params: { lat: number; lng: number; radiusKm: number; type?: string }, token: string) {
@@ -61,11 +66,11 @@ export function searchFilings(params: { lat: number; lng: number; radiusKm: numb
     radius_km: String(params.radiusKm)
   });
   if (params.type && params.type !== "all") query.set("type", params.type);
-  return apiFetch<Filing[]>(`/filings?${query.toString()}`, token);
+  return apiFetch<Filing[]>(`/filings?${query.toString()}`, token, {}, { isApiKey: true });
 }
 
 export function getJurisdictionHealth(id: string, token: string) {
-  return apiFetch<JurisdictionHealth>(`/jurisdictions/${id}/health`, token);
+  return apiFetch<JurisdictionHealth>(`/jurisdictions/${id}/health`, token, {}, { isApiKey: false });
 }
 
 export function createJurisdiction(payload: unknown, token: string, adminKey: string) {
@@ -73,7 +78,7 @@ export function createJurisdiction(payload: unknown, token: string, adminKey: st
     method: "POST",
     headers: { "X-Admin-Key": adminKey },
     body: JSON.stringify(payload)
-  });
+  }, { isApiKey: false });
 }
 
 export async function geocodeAddress(address: string) {
