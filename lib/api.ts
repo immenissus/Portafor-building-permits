@@ -1,6 +1,6 @@
 import type { Filing, JurisdictionHealth, Subscriber, SubscriberPayload } from "./types";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 export class ApiError extends Error {
   constructor(
@@ -41,10 +41,6 @@ export async function apiFetch<T>(
   init: RequestInit = {},
   options: { isApiKey?: boolean } = { isApiKey: true }
 ): Promise<T> {
-  if (!apiUrl) {
-    throw new ApiError(500, "NEXT_PUBLIC_API_URL is not configured");
-  }
-
   const authHeader: Record<string, string> = options.isApiKey
     ? { "X-Subscriber-Key": token }
     : { Authorization: `Bearer ${token}` };

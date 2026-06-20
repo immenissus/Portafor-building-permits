@@ -21,6 +21,14 @@ export function DrawMap({ value, onChange, onMapClick, editable = true, classNam
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const drawRef = useRef<MapboxDraw | null>(null);
 
+  const onMapClickRef = useRef(onMapClick);
+  const onChangeRef = useRef(onChange);
+
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+    onChangeRef.current = onChange;
+  });
+
   // Initialize Map and Controls (Once on Mount)
   useEffect(() => {
     if (!containerRef.current) return;
@@ -90,7 +98,7 @@ export function DrawMap({ value, onChange, onMapClick, editable = true, classNam
     const updateGeometry = () => {
       if (drawMode !== "custom") return;
       const feature = draw.getAll().features[0];
-      onChange?.((feature?.geometry as ServiceArea | undefined) ?? null);
+      onChangeRef.current?.((feature?.geometry as ServiceArea | undefined) ?? null);
     };
 
     map.on("draw.create", updateGeometry);
@@ -99,7 +107,7 @@ export function DrawMap({ value, onChange, onMapClick, editable = true, classNam
 
     // Expose map click event for centering circles
     map.on("click", (e) => {
-      onMapClick?.([e.lngLat.lng, e.lngLat.lat]);
+      onMapClickRef.current?.([e.lngLat.lng, e.lngLat.lat]);
     });
 
     mapRef.current = map;
