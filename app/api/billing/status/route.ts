@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, createClerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
@@ -6,6 +6,24 @@ export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Fast Path: Check if Clerk has already cached the plan and status in publicMetadata
+  try {
+    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY ?? "" });
+    const user = await clerk.users.getUser(userId);
+    const plan = user.publicMetadata.plan as string | undefined;
+    const status = user.publicMetadata.status as string | undefined;
+
+    if (plan) {
+      return NextResponse.json({
+        plan,
+        status: status ?? "active"
+      });
+    }
+  } catch (error) {
+    console.error("Clerk metadata retrieval failed, falling back to Stripe:", error);
+  }
+
+  // Fallback Path: Query Stripe customer and subscription records directly
   if (!process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json({
       plan: "Free",
@@ -37,7 +55,6 @@ export async function GET() {
       const sub = subscriptions.data[0];
       const priceId = sub.items.data[0]?.price.id;
       
-      // Check if price matches our configured yearly/monthly starter price
       const isStarterYearly = priceId === process.env.STRIPE_STARTER_PRICE_ID;
       const planName = isStarterYearly ? "Starter Yearly" : "Starter";
 
@@ -52,7 +69,7 @@ export async function GET() {
       status: "active"
     });
   } catch (error) {
-    console.error("Failed to fetch billing status:", error);
+    console.error("Failed to fetch billing status from Stripe:", error);
     return NextResponse.json({
       plan: "Free",
       status: "active"
