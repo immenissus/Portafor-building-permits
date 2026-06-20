@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { jurisdictions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   try {
     const adminKeyHeader = request.headers.get("X-Admin-Key");

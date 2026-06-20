@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { db } from "@/lib/db";
 import { subscribers } from "@/lib/db/schema";
+
+export const dynamic = "force-dynamic";
 import { eq, sql } from "drizzle-orm";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY ?? "" });

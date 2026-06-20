@@ -4,6 +4,8 @@ import { eq, sql, and } from "drizzle-orm";
 import { jurisdictions, filings, alertsSent, quarantinedFilings } from "@/lib/db/schema";
 import crypto from "crypto";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   try {
     // 1. Fetch all active Socrata jurisdictions
