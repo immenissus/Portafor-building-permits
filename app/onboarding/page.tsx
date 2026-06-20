@@ -31,7 +31,7 @@ export default function OnboardingPage() {
   const [serviceArea, setServiceArea] = useState<ServiceArea | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const [drawMode, setDrawMode] = useState<"custom" | "circle">("custom");
+  const [drawMode, setDrawMode] = useState<"custom" | "circle">("circle");
   const [circleCenterAddress, setCircleCenterAddress] = useState("");
   const [circleCenterCoords, setCircleCenterCoords] = useState<[number, number] | null>(null);
   const [circleRadius, setCircleRadius] = useState(10);
@@ -82,7 +82,15 @@ export default function OnboardingPage() {
 
   async function continueFromDetails() {
     const valid = await form.trigger();
-    if (valid) setStep(2);
+    if (valid) {
+      setStep(2);
+      if (drawMode === "circle" && !serviceArea) {
+        const defaultCenter: [number, number] = [-97.7431, 30.2672]; // Austin, TX
+        setCircleCenterCoords(defaultCenter);
+        setCircleCenterAddress("Austin, TX");
+        setServiceArea(createCirclePolygon(defaultCenter, circleRadius));
+      }
+    }
   }
 
   async function activate() {
@@ -213,7 +221,7 @@ export default function OnboardingPage() {
                         id="radiusSlider"
                         type="range"
                         min="1"
-                        max="50"
+                        max="100"
                         value={circleRadius}
                         onChange={(e) => updateCircleRadius(Number(e.target.value))}
                         className="w-full accent-teal-700 h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer"
