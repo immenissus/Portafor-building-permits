@@ -73,8 +73,11 @@ export async function GET(
         alerted_at: row.alerted_at
       }))
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to retrieve subscriber details:", error);
-    return NextResponse.json({ detail: error instanceof Error ? error.message : "Something went wrong" }, { status: 500 });
+    const detail = error && typeof error === "object"
+      ? `${error.message || "Something went wrong"}${error.detail ? ` (${error.detail})` : ""}${error.hint ? ` [Hint: ${error.hint}]` : ""}`
+      : "Something went wrong";
+    return NextResponse.json({ detail }, { status: 500 });
   }
 }

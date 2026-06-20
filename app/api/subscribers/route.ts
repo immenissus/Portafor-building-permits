@@ -102,8 +102,11 @@ export async function POST(request: Request) {
       updated_at: updated.updated_at,
       service_area: JSON.parse(updated.service_area as string)
     }, { status: existing ? 200 : 211 }); // 211 / 201 Created or 200 OK
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to upsert subscriber:", error);
-    return NextResponse.json({ detail: error instanceof Error ? error.message : "Something went wrong" }, { status: 500 });
+    const detail = error && typeof error === "object"
+      ? `${error.message || "Something went wrong"}${error.detail ? ` (${error.detail})` : ""}${error.hint ? ` [Hint: ${error.hint}]` : ""}`
+      : "Something went wrong";
+    return NextResponse.json({ detail }, { status: 500 });
   }
 }

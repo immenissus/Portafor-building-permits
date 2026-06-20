@@ -65,8 +65,11 @@ export async function GET(request: Request) {
         created_at: row.created_at
       }))
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to query filings proximity:", error);
-    return NextResponse.json({ detail: error instanceof Error ? error.message : "Something went wrong" }, { status: 500 });
+    const detail = error && typeof error === "object"
+      ? `${error.message || "Something went wrong"}${error.detail ? ` (${error.detail})` : ""}${error.hint ? ` [Hint: ${error.hint}]` : ""}`
+      : "Something went wrong";
+    return NextResponse.json({ detail }, { status: 500 });
   }
 }
