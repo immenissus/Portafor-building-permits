@@ -14,7 +14,19 @@ export class ApiError extends Error {
 
 async function parseResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
-  const body = text ? JSON.parse(text) : null;
+  
+  let body: any = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch (error) {
+    if (!response.ok) {
+      throw new ApiError(
+        response.status,
+        `Server returned an error (${response.status} ${response.statusText || "Error"}). Please check that your backend is running and configured correctly.`
+      );
+    }
+    throw new ApiError(500, "Server returned a non-JSON success response");
+  }
 
   if (!response.ok) {
     throw new ApiError(response.status, body?.detail ?? "Something went wrong - try again", body);
