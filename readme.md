@@ -1,207 +1,179 @@
-# RoofLead
+# RoofLead (Portafor) — Ultimate Developer & AI Agent Manual
 
-Lead generation SaaS for roofing contractors.
-
-Users define territories, receive homeowner leads, and manage subscriptions.
-
-* **Frontend:** Next.js (Vercel)
-* **Backend:** Express.js (Railway)
-* **Database:** PostgreSQL (Supabase)
-* **Payments:** Stripe subscriptions with free trials
-* **Maps:** Google Maps API / Mapbox
+RoofLead (Portafor) is a production-ready, high-performance SaaS platform designed to generate high-intent homeowner leads for local roofing and contracting businesses. It monitors real-time municipal open data feeds (such as building permits and business licenses) and instantly alerts subscribed contractors when new filings land inside their defined geographic service territories.
 
 ---
 
-## 2. Architecture
+## 1. Project Purpose & Core Concept
 
-```
-Frontend (Vercel)
-       ↓
-Backend API (Railway)
-       ↓
-Supabase Database (PostgreSQL)
-  ↙    ↓     ↘
-Stripe Webhooks  Mapbox/Google Maps
-```
+Local contractors (roofers, HVAC, solar installers) rely on fresh public record filings to identify potential customers. RoofLead automates this by:
+1. Allowing contractors to register and define their service territories.
+2. Polling government open data repositories (Socrata SODA feeds).
+3. Geocoding addresses, parsing coordinates, and performing spatial database intersections.
+4. Notifying subscribed contractors whose territories overlap with the filings.
 
-### Responsibilities:
-* **Frontend:** Handles user interface, maps display, territory definition (Circular/Polygon), settings toggles, and Clerk authentication redirects. Contains no business logic or payment processing code.
-* **Backend:** Handles authentication parsing, Stripe checkout/portal session generation, billing webhooks processing, and lead matching algorithms.
-* **Database:** Stores users, territories (GeoJSON geometries), leads, and subscription status as the ultimate source of truth.
-* **Stripe:** Subscriptions and billing management.
+* **Frontend:** Next.js (TypeScript, Tailwind, Mapbox GL) deployed on **Vercel**.
+* **Backend:** Python FastAPI (`FilingPulse`) deployed on **Railway** (to support heavy background threads and spatial databases).
+* **Database:** PostgreSQL with the **PostGIS** extension (housed on Supabase/Railway) serving as the ultimate source of truth.
+* **Authentication:** **Clerk** (stores user sessions and billing metadata).
+* **Billing:** **Stripe** (subscription management with 30-day free trials).
 
 ---
 
-## 3. Folder Structure
+## 2. Platform Architecture
 
-### Directories:
-* `app/` — Next.js App Router pages and page layouts.
-* `components/` — Reusable, visual UI components (fields, buttons, map loaders).
-* `lib/` — API fetch utilities, types, schemas, and helper utilities.
-* `hooks/` — React Query and authentication hooks.
-* `backend/` (or FastAPI `api/`) — Backend microservices.
-  * `routes/` — REST API endpoints.
-  * `controllers/` — Request handlers and validations.
-  * `services/` — Heavy business logic (ingestion pipelines, matching engines).
-  * `middleware/` — Role verification and JWT validation middlewares.
-* `database/` — Database schemas and migrations.
-  * `sql/` — DDL schemas and local tables creation.
+```
+         +-------------------------------------------------------+
+         |                    Frontend Dashboard                 |
+         |                     Next.js (Vercel)                  |
+         +-------------------------------------------------------+
+             ↙                                                ↘
+  Clerk Session Auth                                    Mapbox Map Canvas
+             ↓                                                ↓
++-----------------------+                         +-----------------------+
+|  Stripe Checkout/Web  |                         |  FastAPI Backend API  |
+|   /api/billing/*      |                         |  FilingPulse (Railway)|
++-----------------------+                         +-----------------------+
+             ↓                                                ↓
+   Updates Clerk Metadata                       PostgreSQL + PostGIS (ST_Contains)
+```
+
+### Components & System Responsibilities:
+* **Frontend (UI Only):** Manages user states, geocoding input, interactive polygon/circle territory drawing, and dashboard status displays. It has **no direct database access** and never exposes Stripe or Clerk secret keys.
+* **Backend API (Railway):** Powers Socrata SODA data ingestion, address parsing (`usaddress`), geocoding resolution, PostGIS proximity queries, and dispatching matching email alerts.
+* **Database (Supabase / Railway):** PostgreSQL with PostGIS geometry tables storing user metadata, geographic polygons (territories), and matched filings (leads).
+* **Payments (Stripe + Webhooks):** Runs a serverless Next.js Route Handler webhook on Vercel to securely verify Stripe signatures, handle trial completions/payments, and cache billing statuses directly inside Clerk's user metadata.
 
 ---
 
-## 4. Database Schema
+## 3. Codebase Directory Map
 
-### Tables Structure:
-
-#### Users
-* `id` (UUID / text) — Primary Key, maps to Clerk/Auth ID.
-* `email` (varchar) — User contact email.
-* `stripe_customer_id` (varchar) — Stripe billing profile link.
-* `subscription_status` (varchar) — Subscription status (`active`, `past_due`, `cancelled`).
-
-#### Territories
-* `id` (integer / UUID) — Primary Key.
-* `user_id` (UUID / text) — Foreign Key to Users.
-* `service_area` (Geometry / PostGIS Polygon) — Spatial boundary representing the contractor's territory.
-* `latitude` (numeric) — Center latitude for circular radius.
-* `longitude` (numeric) — Center longitude for circular radius.
-* `radius_km` (numeric) — Coverage radius in kilometers.
-
-#### Leads
-* `id` (integer) — Primary Key.
-* `address` (varchar) — Physical raw location.
-* `geom` (Geometry / PostGIS Point) — Geocoded coordinates of the filing.
-* `status` (varchar) — `new`, `matched`, `dispatched`.
-
----
-
-## 5. API Endpoints
-
-### `/auth/login` & `/auth/signup`
-* **Purpose:** Registers/signs in a user and provisions metadata.
-* **Input:** Clerk authentication tokens / user email.
-* **Output:** User JSON record.
-
-### `/checkout/create-session` (frontend: `/api/billing/checkout`)
-* **Purpose:** Generates a secure, 30-day free trial Stripe Checkout session.
-* **Input:** Clerk token.
-* **Output:** Stripe session checkout URL.
-
-### `/territories` (frontend: `/subscribers`)
-* **Purpose:** Fetches or upserts a subscriber's service area.
-* **Input:** Subscriber geometry payload (Polygon or MultiPolygon).
-* **Output:** Updated subscriber profile.
-
-### `/leads` (frontend: `/filings`)
-* **Purpose:** Performs proximity or radius-based queries of matched filings.
-* **Input:** Coordinates near a point (`lat,lng`) and a `radius_km` slider value.
-* **Output:** Array of matching filings.
-
-### `/stripe/webhook` (frontend: `/api/billing/webhook`)
-* **Purpose:** Synchronizes payment failures, cancellations, and trial completions.
-* **Input:** Raw payload with `stripe-signature` header.
-* **Output:** `{ received: true }`.
-
----
-
-## 6. Main User Flows
-
-### Onboarding & Signup Flow
 ```
-User registers (Clerk)
-       ↓
-Fills out business metadata
-       ↓
-Creates circular service territory (Default center, radius up to 100km)
-       ↓
-Stripe 30-day free trial subscription starts
-       ↓
-Subscription set as Active
-       ↓
-Receives matched permit / license leads
-```
-
-### Lead Matching Algorithm
-```
-New Permit/License lead is ingested
-       ↓
-Query PostGIS database to find overlapping service areas (ST_Contains)
-       ↓
-Filter users with "active" subscription status only
-       ↓
-Assign lead to matching contractors
-       ↓
-Dispatch notification email/alerts to subscribers
+C:\Users\Alexey\CascadeProjects\Portafor building permits\
+├── app/                              # Next.js App Router Pages & APIs
+│   ├── admin/                        # Admin Feed Health Portal
+│   ├── api/                          # Next.js API Routes (Stripe)
+│   │   └── billing/
+│   │       ├── checkout/route.ts     # Generates Stripe Subscription sessions (30-day free trial)
+│   │       ├── portal/route.ts       # Generates Stripe Customer billing portal link
+│   │       ├── status/route.ts       # FAST-PATH billing status check (checks Clerk metadata, falls back to Stripe)
+│   │       └── webhook/route.ts      # STRIPE WEBHOOK: Verifies signatures and syncs roles into Clerk publicMetadata
+│   ├── dashboard/                    # Main Contractor Dashboard
+│   │   ├── filings/                  # Radius-based leads manual search page
+│   │   ├── settings/                 # Contractor Profile & Notification preferences
+│   │   └── territory/                # Interactive Mapbox territory modifier
+│   ├── onboarding/                   # Three-step subscriber registration with circular territory selection
+│   ├── sign-in/ [[...sign-in]]/      # Clerk Sign-In wrapper
+│   └── sign-up/ [[...sign-up]]/      # Clerk Sign-Up wrapper
+├── components/                       # Shared Visual Components
+│   ├── map/
+│   │   ├── alert-map-modal.tsx       # Overlays lead pin on a static map
+│   │   ├── draw-map.tsx              # HIGH PERFORMANCE Mapbox Canvas (Supports Custom Shape & 100km Circular Radius)
+│   │   └── filings-map.tsx           # Displays search radius pins
+│   ├── ui/                           # Base UI elements
+│   │   └── field.tsx                 # Core Inputs/Selects (uses React.forwardRef for React Hook Form)
+├── lib/                              # Client-side Core Logic
+│   ├── api.ts                        # Unified Fetch Utility (toggles custom X-Subscriber-Key or Clerk Auth)
+│   ├── schemas.ts                    # Zod validation boundary schemas
+│   ├── types.ts                      # Strict TypeScript interfaces
+│   └── use-subscriber.ts             # Custom query hooks and dev test-key fallbacks
 ```
 
 ---
 
-## 7. Environment Variables
+## 4. API & Integration Contract
 
-* `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` — Configures user sessions and backend token validations.
-* `NEXT_PUBLIC_API_URL` — Address of the backend API service.
-* `NEXT_PUBLIC_MAPBOX_TOKEN` — Mapbox token for interactive maps and static overlays.
-* `NEXT_PUBLIC_ADMIN_API_KEY` / `ADMIN_API_KEY` — Restricts jurisdiction registration.
-* `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` — Manages subscriptions and verifies webhook signature keys.
-* `STRIPE_STARTER_PRICE_ID` — Links to your year/monthly subscription price.
+The frontend Next.js application communicates securely with the FastAPI backend through `NEXT_PUBLIC_API_URL` using two distinct authorization models:
 
----
+### A. Authorization Headers
+1. **Subscriber APIs (`GET /subscribers/{id}`, `GET /filings`)**:
+   Authenticate using custom header: `X-Subscriber-Key: <subscriber_api_key>` (generated upon successful onboarding).
+2. **Onboarding & Admin APIs (`POST /subscribers`, `GET /jurisdictions/{id}/health`)**:
+   Authenticate using standard Bearer Token: `Authorization: Bearer <clerk_session_token>`.
 
-## 8. Business Rules
+### B. Endpoint Spec
 
-* **One territory has one center and radius:** Calculated as a 32-sided polygon approximation of a circle.
-* **Default radius:** 10 km (can expand up to 100 km).
-* **No Overlapping Territories:** Users are validated against creating overlapping service zones in their profiles.
-* **Active Subscriptions:** Active territories require a valid subscription.
-* **Matched Access:** Leads are strictly dispatched only to contractors with active, paying, or trialing accounts.
-
----
-
-## 9. Current Tech Stack
-
-* **Frontend:** Next.js (React), TypeScript, Tailwind CSS, Mapbox GL
-* **Backend:** Express.js / Node.js
-* **Database:** PostgreSQL (PostGIS) / Supabase
-* **Hosting:** Vercel (Frontend), Railway (Backend)
-* **Payments:** Stripe
+| Route | Method | Auth Header Required | Purpose | Input | Output |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `/subscribers` | `POST` | `Authorization: Bearer` | Registers/onboards subscriber | `SubscriberPayload` | `Subscriber` JSON with `api_key` |
+| `/subscribers/{id}` | `GET` | `X-Subscriber-Key` | Fetches contractor profile + alerts | — | `Subscriber` JSON |
+| `/filings` | `GET` | `X-Subscriber-Key` | Runs radius proximity searches | `near=lat,lng`, `radius_km` | `Filing[]` array |
+| `/jurisdictions` | `POST` | `Authorization: Bearer` | Registers a municipal feed | SODA configurations | `JurisdictionHealth` JSON |
+| `/jurisdictions/{id}/health`| `GET` | `Authorization: Bearer` | Checks active poller health status | — | `JurisdictionHealth` JSON |
 
 ---
 
-## 10. Known Issues / TODO
+## 5. Main Developer Flows & Code Lifecycle
 
-* No SMS notification dispatcher.
-* Complex polygon intersection validation incomplete.
-* Stripe Webhook retry and queue failover worker.
+### User Sign-Up & Onboarding Flow
+1. **User Sign Up:** Registers via Clerk at `/sign-up`, redirecting to `/onboarding`.
+2. **Business Profile:** Steps through business name and segment filters validated via Zod schemas.
+3. **Circular Service Radius (Step 2 - Default):** Center address geocodes to coordinates. The slider generates a circular polygon (up to 100km).
+4. **Subscription Activation (Step 3):** Calls `POST /subscribers` (Bearer Auth) to save the subscriber's service area in PostgreSQL. Next, redirects user to checkout, establishing a 30-day free trial on Stripe. Webhook updates Clerk metadata to `active`.
+
+### Geodesic Circle Math (`lib/utils.ts`)
+Mapbox rendering and PostGIS containment require valid `Polygon` geometry. The frontend calculates circle vertices programmatically using geodesic math:
+```typescript
+export function createCirclePolygon(center: [number, number], radiusKm: number, points = 32): GeoJSON.Polygon {
+  const coordinates: [number, number][] = [];
+  const distanceX = radiusKm / (111.32 * Math.cos((center[1] * Math.PI) / 180));
+  const distanceY = radiusKm / 110.574;
+
+  for (let i = 0; i < points; i++) {
+    const angle = (i / points) * (2 * Math.PI);
+    const lng = center[0] + distanceX * Math.cos(angle);
+    const lat = center[1] + distanceY * Math.sin(angle);
+    coordinates.push([lng, lat]);
+  }
+  coordinates.push(coordinates[0]); // Closes loop
+
+  return { type: "Polygon", coordinates: [coordinates] };
+}
+```
 
 ---
 
-## 11. Development Principles
+## 6. Stripe Webhook Architecture & Fast-Path Status Check
 
-* **Business Logic:** Belongs strictly in the backend services.
-* **Security:** Frontend never holds, prints, or exposes Stripe secret keys or Clerk secret tokens.
-* **Modularity:** UI components should be highly reusable.
-* **APIs:** All API response payloads must be cleanly formatted using `camelCase`.
+Stripe events are received at `/api/billing/webhook` to manage billing changes without hitting the database:
+
+```
+Stripe Webhook event
+       ↓
+Verify Signature (STRIPE_WEBHOOK_SECRET)
+       ↓
+Case: checkout.session.completed / invoice.paid
+       ↓
+Extract clerk_user_id (client_reference_id)
+       ↓
+Clerk Backend SDK updates user publicMetadata: { plan: "Starter Yearly", status: "active" }
+```
+
+### The Fast-Path Billing Status Check (`app/api/billing/status/route.ts`)
+Instead of requesting Stripe on every dashboard render (which is rate-limited and slow), the system performs a multi-tier check:
+1. **Fast Path:** Query Clerk backend SDK to fetch user's `publicMetadata`. If a valid `plan` exists, return it instantly (0 latency, 0 Stripe rate-limit usage).
+2. **Slow Path / Fallback:** If Clerk metadata is empty, search Stripe customers via `metadata['clerk_user_id']`, list their subscriptions, and compute the plan.
 
 ---
 
-## 12. Important Files
+## 7. Business & Technical Rules
 
-* `app/api/billing/webhook/route.ts` — Receives and verifies Stripe webhook events to update user roles.
-* `app/api/billing/checkout/route.ts` — Creates Stripe checkout sessions with a 30-day free trial.
-* `app/onboarding/page.tsx` — Onboarding workflow with circular radius selection up to 100km.
-* `components/map/draw-map.tsx` — Interactive Mapbox canvas rendering polygons and radius circles.
+* **Default Radius:** 10 km (enforced as circular geometry during Step 2). Can expand dynamically up to **100 km**.
+* **Database Is Source of Truth:** Geometries must always be stored in kilometers and closed properly.
+* **Refs in custom inputs:** Inputs, Selects, and Textareas in `components/ui/field.tsx` **MUST** use `React.forwardRef`. Dropping refs breaks React Hook Form tracking and keeps buttons locked in "Required" state.
+* **No Client Secrets:** `STRIPE_SECRET_KEY` and `CLERK_SECRET_KEY` must never be used or printed on the client-side. They reside strictly in serverless Route Handlers (`app/api/*`).
 
 ---
 
-## AI Context
+## 8. AI Developer Directives (CRUCIAL)
 
-This is a lead-generation SaaS for roofing contractors.
+When working on this codebase, you **MUST** adhere to the following:
 
-### Crucial Directives:
-* **Frontend contains no business logic.** Keep validations and math scoped.
-* **Stripe secrets live only on the backend** / server-side route handlers.
-* **Territory radius is stored in kilometers.**
-* **PostgreSQL (PostGIS) is the ultimate source of truth.**
-* **Subscription status determines service area matching access.**
-* **Never duplicate logic already in services/.**
-* **Prefer modifying existing files over creating new ones.**
+1. **Type Safety First:** Never bypass or suppress TypeScript compiler errors. Always check code using `npx tsc --noEmit` before proposing changes.
+2. **Quality Checks:** Run `npm run lint` before committing.
+3. **No Direct Database Queries from Frontend:** The Next.js client does not hold Postgres connections. Always communicate with the database via the API endpoints defined in `lib/api.ts`.
+4. **Local Testing Fallbacks:** If testing locally without fully populated Clerk metadata, `lib/use-subscriber.ts` automatically maps numeric Subscriber IDs to default test keys:
+   * Subscriber ID `1` / `austin` → `austin_roofing_test_api_key_abc123`
+   * Subscriber ID `2` / `dallas` → `dallas_hvac_test_api_key_xyz789`
+5. **No Duplicate Logic:** Avoid rewriting API calls. Always centralize requests in `lib/api.ts` and use React Query hooks.
+6. **Protect Secrets:** Never stage or edit `.env.example` with active keys (Stripe `sk_live`, Clerk `sk_test`). Always use your local `.env.local` which is git-ignored.

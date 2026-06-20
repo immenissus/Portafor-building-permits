@@ -1,0 +1,16 @@
+[
+  {
+    "permit_number": "2026-061800",
+    "permit_type": "Roofing Permit",
+    "original_address": "1104 Sabine St, Austin, TX 78701",
+    "issue_date": "2026-06-18T09:30:00.000",
+    "work_description": "Tear off and replace composite shingles",
+    "permit_status": "Issued",
+    "contractor_name": "Austin Premium Roofing",
+    "property_owner": "Jane Doe",
+    "project_valuation": "12500.00",
+    "latitude": "30.2713",
+    "longitude": "-97.7348",
+    ":id": "row-xyz-987"
+  }
+]

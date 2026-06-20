@@ -1,0 +1,20 @@
+# FilingPulse Dependencies - Pinned for Production
+fastapi==0.111.0
+uvicorn==0.30.1
+pydantic==2.7.4
+pydantic-settings==2.3.3
+SQLAlchemy==2.0.31
+asyncpg==0.29.0
+geoalchemy2==0.15.0
+shapely==2.0.4
+sodapy==2.2.0
+usaddress==0.5.10
+requests==2.32.3
+apscheduler==3.10.4
+alembic==1.13.1
+email-validator==2.1.1
+
+# Testing
+pytest==8.2.2
+pytest-asyncio==0.23.7
+responses==0.25.3

@@ -1,0 +1,15 @@
+[
+  {
+    "lic_num": "LIC-887711",
+    "lic_type": "Business License",
+    "bus_name": "Lone Star HVAC Repair",
+    "premise_addr": "1500 Marilla St, Dallas, TX 75201",
+    "issued": "2026-06-18T14:15:00.000",
+    "expire": "2027-06-18T00:00:00.000",
+    "owner": "John Smith",
+    "lic_status": "Active",
+    "lat": "32.7767",
+    "lng": "-96.7970",
+    ":id": "row-abc-123"
+  }
+]

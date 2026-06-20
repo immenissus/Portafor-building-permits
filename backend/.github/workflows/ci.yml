@@ -1,0 +1,65 @@
+name: FilingPulse CI Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  lint-and-test:
+    name: Lint & Test Suite
+    runs-on: ubuntu-latest
+
+    services:
+      # Optional: In production, we mock DB and API calls for unit tests,
+      # so a real PostGIS service is only required for full system integration tests.
+      postgres:
+        image: postgis/postgis:15-3.3-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: filingpulse_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check code formatting (black style)
+        run: |
+          pip install ruff
+          ruff format --check .
+
+      - name: Static Linting and Type Verification (ruff)
+        run: |
+          ruff check .
+
+      - name: Run Pytest Test Suite
+        env:
+          # Inject mock/test environmental parameters
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/filingpulse_test
+          SECRET_KEY: test_secret_key_must_be_thirty_two_chars_long_ci
+          ADMIN_API_KEY: test_admin_api_key
+          ENVIRONMENT: development
+          DEBUG: "true"
+          PYTHONPATH: filingpulse
+        run: |
+          python -m pytest tests/
