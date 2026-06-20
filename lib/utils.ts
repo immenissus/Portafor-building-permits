@@ -57,3 +57,22 @@ export function staticPolygonUrl(serviceArea: GeoJSON.Geometry, width = 600, hei
   const overlay = encodeURIComponent(JSON.stringify({ type: "Feature", properties: { stroke: "#185FA5", "stroke-width": 3, fill: "#3B8BD4", "fill-opacity": 0.2 }, geometry: serviceArea }));
   return `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/geojson(${overlay})/auto/${width}x${height}?padding=48&access_token=${token}`;
 }
+
+export function createCirclePolygon(center: [number, number], radiusKm: number, points = 32): GeoJSON.Polygon {
+  const coordinates: [number, number][] = [];
+  const distanceX = radiusKm / (111.32 * Math.cos((center[1] * Math.PI) / 180));
+  const distanceY = radiusKm / 110.574;
+
+  for (let i = 0; i < points; i++) {
+    const angle = (i / points) * (2 * Math.PI);
+    const lng = center[0] + distanceX * Math.cos(angle);
+    const lat = center[1] + distanceY * Math.sin(angle);
+    coordinates.push([lng, lat]);
+  }
+  coordinates.push(coordinates[0]); // Close the polygon
+
+  return {
+    type: "Polygon",
+    coordinates: [coordinates]
+  };
+}
