@@ -123,7 +123,7 @@ export async function GET(request: Request) {
 
           const externalId = remapped.permit_number || remapped.license_number || remapped.id;
           const addressRaw = remapped.address;
-          const filingType = remapped.permit_type || remapped.license_type || "building_permit";
+          const filingType = jur.name.toLowerCase().includes("license") ? "business_license" : "building_permit";
           const filedAtStr = remapped.issued_date;
 
           if (!externalId || !addressRaw || !filedAtStr) {
