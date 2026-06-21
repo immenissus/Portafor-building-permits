@@ -43,10 +43,12 @@ export async function GET(
       return NextResponse.json({ detail: "Subscriber not found" }, { status: 404 });
     }
 
-    // Retrieve up to 50 of their most recent dispatched alerts
+    // Retrieve up to 50 of their most recent dispatched alerts with coordinates and addresses
     const recentAlerts = await db.execute(sql`
       SELECT 
-        f.id, f.filing_type, f.address_raw, f.filed_at, a.dispatched_at as alerted_at
+        f.id, f.filing_type, f.address_raw, f.filed_at, a.dispatched_at as alerted_at,
+        ST_X(f.geom::geometry) as longitude,
+        ST_Y(f.geom::geometry) as latitude
       FROM alerts_sent a
       JOIN filings f ON a.filing_id = f.id
       WHERE a.subscriber_id = ${id}
@@ -68,9 +70,11 @@ export async function GET(
       recent_alerts: recentAlerts.map((row) => ({
         id: row.id,
         filing_type: row.filing_type,
-        address_raw: row.address_raw,
+        address: row.address_raw,
         filed_at: row.filed_at,
-        alerted_at: row.alerted_at
+        alerted_at: row.alerted_at,
+        lat: parseFloat(row.latitude as string),
+        lng: parseFloat(row.longitude as string)
       }))
     });
   } catch (error: any) {
