@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { BellRing, MapPinned } from "lucide-react";
 import { AlertMapModal } from "@/components/map/alert-map-modal";
 import { FilingBadge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,6 +15,7 @@ import { relativeTime, staticMapUrl } from "@/lib/utils";
 export default function DashboardPage() {
   const [filter, setFilter] = useState("all");
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+  const [visibleCount, setVisibleCount] = useState(10);
   const subscriber = useSubscriber();
   const alerts = useMemo(() => {
     const items = subscriber.data?.recent_alerts ?? [];
@@ -50,26 +52,36 @@ export default function DashboardPage() {
           <p className="mt-2 max-w-md text-sm leading-6 text-stone-600">New government filings are checked on the backend poll schedule and will show up here when they match your service area.</p>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {alerts.map((alert) => (
-            <Card key={alert.id} className="grid gap-4 p-4 sm:grid-cols-[1fr_180px]">
-              <div className="space-y-3">
-                <FilingBadge type={alert.filing_type} />
-                <div>
-                  <p className="text-base font-medium text-stone-950">{alert.address}</p>
-                  <p className="text-sm text-stone-500">{relativeTime(alert.filed_at)}</p>
+        <div className="space-y-4">
+          <div className="grid gap-4">
+            {alerts.slice(0, visibleCount).map((alert) => (
+              <Card key={alert.id} className="grid gap-4 p-4 sm:grid-cols-[1fr_180px]">
+                <div className="space-y-3">
+                  <FilingBadge type={alert.filing_type} />
+                  <div>
+                    <p className="text-base font-medium text-stone-950">{alert.address}</p>
+                    <p className="text-sm text-stone-500">{relativeTime(alert.filed_at)}</p>
+                  </div>
+                  <button onClick={() => setSelectedAlert(alert)} className="inline-flex items-center gap-1 text-sm font-medium text-teal-700 hover:text-teal-800">
+                    <MapPinned className="h-4 w-4" /> View on map
+                  </button>
                 </div>
-                <button onClick={() => setSelectedAlert(alert)} className="inline-flex items-center gap-1 text-sm font-medium text-teal-700 hover:text-teal-800">
-                  <MapPinned className="h-4 w-4" /> View on map
-                </button>
-              </div>
-              {staticMapUrl(alert.lng, alert.lat, 360, 200) ? (
-                <img src={staticMapUrl(alert.lng, alert.lat, 360, 200)} alt="" className="h-[100px] w-full rounded-xl object-cover sm:w-[180px]" />
-              ) : (
-                <div className="h-[100px] rounded-xl bg-stone-100" />
-              )}
-            </Card>
-          ))}
+                {staticMapUrl(alert.lng, alert.lat, 360, 200) ? (
+                  <img src={staticMapUrl(alert.lng, alert.lat, 360, 200)} alt="" className="h-[100px] w-full rounded-xl object-cover sm:w-[180px]" />
+                ) : (
+                  <div className="h-[100px] rounded-xl bg-stone-100" />
+                )}
+              </Card>
+            ))}
+          </div>
+
+          {alerts.length > visibleCount && (
+            <div className="flex justify-center pt-4">
+              <Button variant="secondary" onClick={() => setVisibleCount((prev) => prev + 10)}>
+                Load more past alerts
+              </Button>
+            </div>
+          )}
         </div>
       )}
       <AlertMapModal alert={selectedAlert} onClose={() => setSelectedAlert(null)} />

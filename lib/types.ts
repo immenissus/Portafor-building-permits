@@ -19,6 +19,7 @@ export type Subscriber = {
   business_type: BusinessType;
   filing_type_filters: FilingType[];
   service_area: ServiceArea;
+  radius_km?: number;
   created_at: string;
   recent_alerts: Alert[];
   api_key?: string;
