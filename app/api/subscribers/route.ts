@@ -2,7 +2,7 @@ import { auth, createClerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { db } from "@/lib/db";
-import { subscribers } from "@/lib/db/schema";
+import { subscribers, alertsSent } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 import { eq, sql } from "drizzle-orm";
@@ -77,6 +77,38 @@ export async function POST(request: Request) {
           status: "active"
         }
       });
+    }
+
+    // -------------------------------------------------------------------------
+    // INSTANT HISTORICAL ALERT PRE-POPULATION
+    // -------------------------------------------------------------------------
+    // Search the database for any pre-existing filings inside this contractor's newly 
+    // drawn/updated zone, and immediately link the 10 most recent as active alerts!
+    try {
+      // First, clear any old alerts associated with this contractor (for zone updates only)
+      if (existing) {
+        await db.delete(alertsSent).where(eq(alertsSent.subscriberId, userId));
+      }
+
+      const pastMatches = await db.execute(sql`
+        SELECT id 
+        FROM filings 
+        WHERE ST_Contains(ST_GeomFromGeoJSON(${serviceAreaGeoJson}), geom)
+          AND filing_type = ANY(${filing_type_filters})
+        ORDER BY filed_at DESC
+        LIMIT 10
+      `);
+
+      for (const match of pastMatches) {
+        await db.insert(alertsSent).values({
+          id: crypto.randomUUID(),
+          subscriberId: userId,
+          filingId: match.id as string
+        });
+      }
+      console.log(`Instant Matching: Pre-populated subscriber ${userId} with ${pastMatches.length} historical leads.`);
+    } catch (matchErr) {
+      console.error("Instant historical alerts matching failed:", matchErr);
     }
 
     // Retrieve the newly created / updated record (converting geometry back to GeoJSON)
