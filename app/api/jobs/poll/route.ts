@@ -78,7 +78,7 @@ export async function GET(request: Request) {
 
       const watermarkStr = watermark.toISOString().split(".")[0]; // YYYY-MM-DDTHH:MM:SS format
       const columnFieldMap = jur.columnFieldMap as Record<string, string>;
-      const socrataUrl = `https://${jur.socrataDomain}/resource/${jur.resourceId}.json?$where=${columnFieldMap.issued_date || "issued_date"} > '${watermarkStr}'&$order=${columnFieldMap.issued_date || "issued_date"} ASC&$limit=20`;
+      const socrataUrl = `https://${jur.socrataDomain}/resource/${jur.resourceId}.json?$where=${columnFieldMap.issued_date || "issued_date"} > '${watermarkStr}'&$order=${columnFieldMap.issued_date || "issued_date"} ASC&$limit=5`;
 
       let response: Response;
       try {
