@@ -107,11 +107,18 @@ export async function GET(request: Request) {
 
       for (const raw of rawRecords) {
         try {
-          // Remap custom columns based on columnFieldMap
+          // Remap Socrata fields back to canonical names based on columnFieldMap (e.g. original_address_1 -> address)
           const remapped: Record<string, any> = {};
+          for (const [canonicalKey, socrataKey] of Object.entries(columnFieldMap)) {
+            if (raw[socrataKey] !== undefined) {
+              remapped[canonicalKey] = raw[socrataKey];
+            }
+          }
+          // Copy any raw Socrata fields that weren't explicitly mapped as fallbacks
           for (const [key, val] of Object.entries(raw)) {
-            const mappedKey = columnFieldMap[key] || key;
-            remapped[mappedKey] = val;
+            if (remapped[key] === undefined) {
+              remapped[key] = val;
+            }
           }
 
           const externalId = remapped.permit_number || remapped.license_number || remapped.id;
