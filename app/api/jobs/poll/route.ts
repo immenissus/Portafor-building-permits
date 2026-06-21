@@ -51,11 +51,18 @@ export async function GET(request: Request) {
       .from(jurisdictions)
       .where(eq(jurisdictions.isActive, true));
 
+    // Diagnostic query: Fetch all registered jurisdictions to inspect database synchronization state
+    const allJurisdictions = await db
+      .select({ id: jurisdictions.id, name: jurisdictions.name, isActive: jurisdictions.isActive })
+      .from(jurisdictions);
+
     const report = {
       timestamp: new Date().toISOString(),
       jurisdictionsProcessed: 0,
       totalNewFilings: 0,
       totalMatchedAlerts: 0,
+      totalJurisdictionsInDb: allJurisdictions.length,
+      allJurisdictionsInDb: allJurisdictions,
       details: [] as any[]
     };
 
