@@ -40,6 +40,29 @@ export default function SettingsPage() {
     setDigest(localStorage.getItem("portafor.digest") ?? "instant");
   }, []);
 
+  const [sendingTest, setSendingTest] = useState(false);
+
+  async function sendTestAlert() {
+    setSendingTest(true);
+    try {
+      const response = await fetch("/api/alerts/test", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Failed to dispatch test alert");
+      
+      toast({
+        title: "Test Alert Sent!",
+        description: `A mock roofing lead alert has been dispatched to ${data.email}. Check your inbox!`
+      });
+    } catch (err) {
+      toast({
+        title: "Test Alert Failed",
+        description: err instanceof Error ? err.message : "Something went wrong"
+      });
+    } finally {
+      setSendingTest(false);
+    }
+  }
+
   function savePrefs(nextEmailAlerts = emailAlerts, nextDigest = digest) {
     localStorage.setItem("portafor.emailAlerts", String(nextEmailAlerts));
     localStorage.setItem("portafor.digest", nextDigest);
@@ -111,6 +134,17 @@ export default function SettingsPage() {
               </label>
             ))}
           </div>
+          {emailAlerts && (
+            <div className="flex justify-end pt-2">
+              <Button
+                variant="secondary"
+                onClick={sendTestAlert}
+                disabled={sendingTest || subscriber.isLoading}
+              >
+                {sendingTest ? "Sending Test..." : "Send Test Alert Email"}
+              </Button>
+            </div>
+          )}
         </div>
       </Card>
 

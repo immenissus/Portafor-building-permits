@@ -76,3 +76,15 @@ export const alertsSent = pgTable("alerts_sent", {
   filingId: varchar("filing_id", { length: 255 }).references(() => filings.id).notNull(),
   dispatchedAt: timestamp("dispatched_at").defaultNow().notNull()
 });
+
+// STRIPE WEBHOOK LOGGING & RETRY QUEUE
+export const stripeWebhookEvents = pgTable("stripe_webhook_events", {
+  id: varchar("id", { length: 255 }).primaryKey(), // Stripe Event ID
+  type: varchar("type", { length: 100 }).notNull(),
+  clerkUserId: varchar("clerk_user_id", { length: 255 }),
+  status: varchar("status", { length: 50 }).default("pending").notNull(), // pending, processed, failed
+  errorLog: text("error_log"),
+  payload: jsonb("payload").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  processedAt: timestamp("processed_at")
+});

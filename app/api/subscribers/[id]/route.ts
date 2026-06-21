@@ -43,7 +43,7 @@ export async function GET(
       return NextResponse.json({ detail: "Subscriber not found" }, { status: 404 });
     }
 
-    // Retrieve up to 10 of their most recent dispatched alerts
+    // Retrieve up to 50 of their most recent dispatched alerts
     const recentAlerts = await db.execute(sql`
       SELECT 
         f.id, f.filing_type, f.address_raw, f.filed_at, a.dispatched_at as alerted_at
@@ -51,7 +51,7 @@ export async function GET(
       JOIN filings f ON a.filing_id = f.id
       WHERE a.subscriber_id = ${id}
       ORDER BY a.dispatched_at DESC
-      LIMIT 10
+      LIMIT 50
     `);
 
     return NextResponse.json({

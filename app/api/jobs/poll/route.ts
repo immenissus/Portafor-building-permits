@@ -1,13 +1,50 @@
 import { NextResponse } from "next/server";
+import { createClerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { eq, sql, and } from "drizzle-orm";
-import { jurisdictions, filings, alertsSent, quarantinedFilings } from "@/lib/db/schema";
+import { jurisdictions, filings, alertsSent, quarantinedFilings, stripeWebhookEvents } from "@/lib/db/schema";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
+    // 0. Webhook Self-Healing Retry Queue (Heals any failed Clerk synchronizations)
+    try {
+      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY ?? "" });
+      const failedEvents = await db
+        .select()
+        .from(stripeWebhookEvents)
+        .where(eq(stripeWebhookEvents.status, "failed"));
+
+      for (const event of failedEvents) {
+        if (event.clerkUserId) {
+          let success = false;
+          if (event.type === "checkout.session.completed" || event.type === "invoice.paid") {
+            await clerk.users.updateUser(event.clerkUserId, {
+              publicMetadata: { plan: "Starter Yearly", status: "active" }
+            });
+            success = true;
+          } else if (event.type === "customer.subscription.deleted") {
+            await clerk.users.updateUser(event.clerkUserId, {
+              publicMetadata: { plan: "Free", status: "active" }
+            });
+            success = true;
+          }
+
+          if (success) {
+            await db
+              .update(stripeWebhookEvents)
+              .set({ status: "processed", processedAt: new Date() })
+              .where(eq(stripeWebhookEvents.id, event.id));
+            console.log(`Self-Healing Queue: Successfully recovered event ${event.id} for user ${event.clerkUserId}`);
+          }
+        }
+      }
+    } catch (queueErr) {
+      console.error("Self-healing webhook queue recovery failed:", queueErr);
+    }
+
     // 1. Fetch all active Socrata jurisdictions
     const activeJurisdictions = await db
       .select()
