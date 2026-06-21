@@ -94,7 +94,7 @@ export async function POST(request: Request) {
         SELECT id 
         FROM filings 
         WHERE ST_Contains(ST_GeomFromGeoJSON(${serviceAreaGeoJson}), geom)
-          AND filing_type = ANY(${filing_type_filters})
+          AND ${JSON.stringify(filing_type_filters)}::jsonb ? filing_type
         ORDER BY filed_at DESC
         LIMIT 10
       `);
