@@ -94,6 +94,12 @@ export async function GET(request: Request) {
           .update(jurisdictions)
           .set({ consecutiveFailures: jur.consecutiveFailures + 1 })
           .where(eq(jurisdictions.id, jur.id));
+        
+        report.details.push({
+          jurisdiction: jur.name,
+          status: "failed",
+          error: err instanceof Error ? err.message : String(err)
+        });
         continue;
       }
 
