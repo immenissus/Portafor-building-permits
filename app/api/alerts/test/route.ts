@@ -28,21 +28,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Rate Limiting: Prevent more than 5 test emails in the last hour
-    const [rateLimitRes] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(alertsSent)
-      .where(
-        sql`subscriber_id = ${userId} AND dispatched_at > NOW() - INTERVAL '1 hour'`
-      );
-
-    if (rateLimitRes && rateLimitRes.count >= 5) {
-      return NextResponse.json(
-        { detail: "Rate limit exceeded. You can send up to 5 test alerts per hour." },
-        { status: 429 }
-      );
-    }
-
     const email = subscriber.email;
     if (!email) {
       return NextResponse.json({ detail: "No email address linked to your profile." }, { status: 400 });
@@ -134,13 +119,6 @@ export async function POST(request: Request) {
     } else {
       console.log(`[Test Email Mock Dispatch] Target: ${email} | Subject: ${subject}`);
     }
-
-    // Log the test dispatch as a real, non-filing mock alert sent (for rate limiting and history)
-    await db.insert(alertsSent).values({
-      id: `test_sent_${crypto.randomUUID()}`,
-      subscriberId: userId,
-      filingId: "test_filing_mock" // Placeholder filing ID
-    });
 
     return NextResponse.json({ success: true, email });
   } catch (error) {
