@@ -195,6 +195,7 @@ export async function GET(request: Request) {
               const textBody = `Hello ${sub.business_name},\n\nWe found a new ${filingLabel} in your area:\n- Address: ${addressRaw}\n- Date: ${filedAtStr}\n\nBest,\nRoofLead Team`;
 
               if (process.env.RESEND_API_KEY) {
+                const senderEmail = process.env.SENDER_EMAIL || "onboarding@resend.dev";
                 await fetch("https://api.resend.com/emails", {
                   method: "POST",
                   headers: {
@@ -202,7 +203,7 @@ export async function GET(request: Request) {
                     Authorization: `Bearer ${process.env.RESEND_API_KEY}`
                   },
                   body: JSON.stringify({
-                    from: "alerts@rooflead.com",
+                    from: senderEmail,
                     to: sub.email,
                     subject,
                     text: textBody

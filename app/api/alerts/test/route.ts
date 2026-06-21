@@ -111,6 +111,7 @@ export async function POST(request: Request) {
 
     // Dispatch Email (Uses Resend or falls back to server console log)
     if (process.env.RESEND_API_KEY) {
+      const senderEmail = process.env.SENDER_EMAIL || "onboarding@resend.dev";
       const emailResponse = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
           Authorization: `Bearer ${process.env.RESEND_API_KEY}`
         },
         body: JSON.stringify({
-          from: "alerts@rooflead.com",
+          from: senderEmail,
           to: email,
           subject,
           html: htmlBody,
