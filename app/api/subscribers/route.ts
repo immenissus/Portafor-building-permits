@@ -11,6 +11,10 @@ const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY ?? "" 
 
 export async function POST(request: Request) {
   try {
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ detail: "DATABASE_URL environment variable is missing on Vercel" }, { status: 500 });
+    }
+
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
@@ -104,9 +108,17 @@ export async function POST(request: Request) {
     }, { status: existing ? 200 : 211 }); // 211 / 201 Created or 200 OK
   } catch (error: any) {
     console.error("Failed to upsert subscriber:", error);
-    const detail = error && typeof error === "object"
-      ? `${error.message || "Something went wrong"}${error.detail ? ` (${error.detail})` : ""}${error.hint ? ` [Hint: ${error.hint}]` : ""}`
-      : "Something went wrong";
-    return NextResponse.json({ detail }, { status: 500 });
+    
+    let dbErrorMessage = error && typeof error === "object" ? error.message : "Something went wrong";
+    if (error && typeof error === "object") {
+      if (error.detail) dbErrorMessage += ` (${error.detail})`;
+      if (error.hint) dbErrorMessage += ` [Hint: ${error.hint}]`;
+      if (error.cause) {
+        const causeMessage = error.cause instanceof Error ? error.cause.message : String(error.cause);
+        dbErrorMessage += ` | Connection Cause: ${causeMessage}`;
+      }
+    }
+    
+    return NextResponse.json({ detail: dbErrorMessage }, { status: 500 });
   }
 }
