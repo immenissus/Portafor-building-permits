@@ -259,6 +259,7 @@ export async function GET(request: Request) {
 
       report.details.push({
         jurisdiction: jur.name,
+        rawRecordsLength: rawRecords.length,
         newFilings: jurNewFilings,
         alertsDispatched: jurMatchedAlerts
       });
