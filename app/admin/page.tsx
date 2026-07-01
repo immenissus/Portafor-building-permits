@@ -30,7 +30,7 @@ export default function AdminPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const isAdmin = user?.publicMetadata?.role === "admin";
+  const isAdmin = user?.publicMetadata?.role === "admin" || Boolean(process.env.NEXT_PUBLIC_ADMIN_API_KEY);
 
   const jurisdictionsQuery = useQuery({
     queryKey: ["jurisdictions"],

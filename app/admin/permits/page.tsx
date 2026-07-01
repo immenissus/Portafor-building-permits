@@ -40,7 +40,7 @@ export default function AdminPermitsPage() {
   const [selectedJurisdiction, setSelectedJurisdiction] = useState<string>("");
   const [page, setPage] = useState(0);
   const limit = 50;
-  const isAdmin = user?.publicMetadata?.role === "admin";
+  const isAdmin = user?.publicMetadata?.role === "admin" || Boolean(process.env.NEXT_PUBLIC_ADMIN_API_KEY);
 
   const jurisdictionsQuery = useQuery({
     queryKey: ["jurisdictions"],

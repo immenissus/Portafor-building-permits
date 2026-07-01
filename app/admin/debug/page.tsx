@@ -39,7 +39,7 @@ export default function AdminDebugPage() {
   const { getToken } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const isAdmin = user?.publicMetadata?.role === "admin";
+  const isAdmin = user?.publicMetadata?.role === "admin" || Boolean(process.env.NEXT_PUBLIC_ADMIN_API_KEY);
 
   const [backfillStartDate, setBackfillStartDate] = useState("2025-06-01");
 

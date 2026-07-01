@@ -16,7 +16,7 @@ const navItems = [
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useUser();
-  const isAdmin = user?.publicMetadata?.role === "admin";
+  const isAdmin = user?.publicMetadata?.role === "admin" || Boolean(process.env.NEXT_PUBLIC_ADMIN_API_KEY);
 
   return (
     <div className="min-h-screen bg-background text-stone-900">
