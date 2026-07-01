@@ -6,6 +6,31 @@ import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
+export async function GET() {
+  try {
+    const allJurisdictions = await db
+      .select({
+        id: jurisdictions.id,
+        name: jurisdictions.name,
+        socrataDomain: jurisdictions.socrataDomain,
+        resourceId: jurisdictions.resourceId,
+        isActive: jurisdictions.isActive,
+        lastPolledAt: jurisdictions.lastPolledAt,
+        lastSuccessAt: jurisdictions.lastSuccessAt,
+        consecutiveFailures: jurisdictions.consecutiveFailures,
+        totalIngested: jurisdictions.totalIngested,
+        totalQuarantined: jurisdictions.totalQuarantined,
+        createdAt: jurisdictions.createdAt
+      })
+      .from(jurisdictions);
+
+    return NextResponse.json(allJurisdictions);
+  } catch (error) {
+    console.error("Failed to list jurisdictions:", error);
+    return NextResponse.json({ detail: error instanceof Error ? error.message : "Something went wrong" }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const adminKeyHeader = request.headers.get("X-Admin-Key");
