@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignOutButton, UserButton, useUser } from "@clerk/nextjs";
-import { Bell, Map, Search, Settings, ShieldCheck } from "lucide-react";
+import { Bell, Map, Search, Settings, ShieldCheck, Table } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -36,10 +36,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             );
           })}
           {isAdmin ? (
-            <Link href="/admin" className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium", pathname.startsWith("/admin") ? "bg-teal-50 text-teal-800" : "text-stone-700 hover:bg-stone-100")}>
-              <ShieldCheck className="h-4 w-4" />
-              Admin
-            </Link>
+            <>
+              <Link href="/admin" className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium", pathname === "/admin" ? "bg-teal-50 text-teal-800" : "text-stone-700 hover:bg-stone-100")}>
+                <ShieldCheck className="h-4 w-4" />
+                Admin
+              </Link>
+              <Link href="/admin/permits" className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium", pathname === "/admin/permits" ? "bg-teal-50 text-teal-800" : "text-stone-700 hover:bg-stone-100")}>
+                <Table className="h-4 w-4" />
+                Permits Data
+              </Link>
+            </>
           ) : null}
         </nav>
         <div className="flex items-center gap-3 border-t border-stone-200 pt-4">

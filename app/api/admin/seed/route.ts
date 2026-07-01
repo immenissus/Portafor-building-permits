@@ -129,6 +129,28 @@ async function backfillJurisdiction(jurisdiction: any, startDate: Date) {
         let latitude = remapped.latitude ? parseFloat(remapped.latitude) : null;
         let longitude = remapped.longitude ? parseFloat(remapped.longitude) : null;
 
+        // Geocode using Mapbox if coordinates are missing
+        if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
+          const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+          if (mapboxToken && addressRaw) {
+            try {
+              const geoResponse = await fetch(
+                `https://api.mapbox.com/search/geocode/v6/forward?q=${encodeURIComponent(addressRaw)}&limit=1&access_token=${mapboxToken}`
+              );
+              if (geoResponse.ok) {
+                const geoData = await geoResponse.json();
+                const feature = geoData.features?.[0];
+                if (feature?.geometry?.coordinates) {
+                  longitude = feature.geometry.coordinates[0];
+                  latitude = feature.geometry.coordinates[1];
+                }
+              }
+            } catch (geoErr) {
+              console.error(`Geocoding failed for ${addressRaw}:`, geoErr);
+            }
+          }
+        }
+
         if (latitude && longitude && !isNaN(latitude) && !isNaN(longitude)) {
           const filingId = crypto.randomUUID();
           await db.insert(filings).values({
