@@ -113,17 +113,37 @@ export default function OnboardingPage() {
 
       // Redirect to Stripe checkout
       const tier = form.getValues("market") === "orlando" ? "professional" : "starter";
-      const checkoutRes = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier, interval: "monthly" })
-      });
-      const checkoutData = await checkoutRes.json();
+      try {
+        const checkoutRes = await fetch("/api/billing/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tier, interval: "monthly" })
+        });
 
-      if (checkoutData.url) {
-        window.location.href = checkoutData.url;
-      } else {
-        // If Stripe not configured, go to dashboard
+        if (!checkoutRes.ok) {
+          console.error("Checkout API returned status:", checkoutRes.status);
+          router.replace("/dashboard");
+          return;
+        }
+
+        const checkoutText = await checkoutRes.text();
+        let checkoutData: { url?: string; error?: string };
+        try {
+          checkoutData = JSON.parse(checkoutText);
+        } catch {
+          console.error("Checkout response is not JSON:", checkoutText);
+          router.replace("/dashboard");
+          return;
+        }
+
+        if (checkoutData.url) {
+          window.location.href = checkoutData.url;
+        } else {
+          console.error("No checkout URL returned:", checkoutData);
+          router.replace("/dashboard");
+        }
+      } catch (checkoutError) {
+        console.error("Checkout failed, going to dashboard:", checkoutError);
         router.replace("/dashboard");
       }
     } catch (error) {
