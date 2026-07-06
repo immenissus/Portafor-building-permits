@@ -202,15 +202,8 @@ export default function MarketingPage() {
               <div className="h-3 w-3 rounded-full bg-green-400" />
               <span className="ml-3 text-xs text-stone-400">portafor.info/dashboard</span>
             </div>
-            <div className="relative aspect-[16/9] bg-gradient-to-br from-stone-50 to-stone-100">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <img src="/images/dashboard-preview.png" alt="Portafor dashboard showing permit alerts" className="h-full w-full object-cover" />
-              </div>
-              {/* Placeholder overlay */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-teal-50/80 to-stone-100/80">
-                <Building2 className="h-16 w-16 text-teal-200" />
-                <p className="mt-4 text-sm text-stone-400">Dashboard preview image</p>
-              </div>
+            <div className="relative aspect-[16/9]">
+              <img src="/images/dashboard-preview.png" alt="Portafor dashboard showing permit alerts" className="h-full w-full object-cover" />
             </div>
           </div>
         </motion.div>

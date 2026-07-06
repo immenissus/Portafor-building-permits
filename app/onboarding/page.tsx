@@ -102,6 +102,7 @@ export default function OnboardingPage() {
     if (!serviceArea) return;
     setSubmitting(true);
     try {
+      // 1. Save subscriber
       const subscriber = await upsertSubscriber({ ...form.getValues(), service_area: serviceArea }, await getTokenOrThrow(getToken));
       await user?.update({
         unsafeMetadata: {
@@ -111,43 +112,27 @@ export default function OnboardingPage() {
         }
       });
 
-      // Redirect to Stripe checkout
+      // 2. Redirect to Stripe checkout
       const tier = form.getValues("market") === "orlando" ? "professional" : "starter";
-      try {
-        const checkoutRes = await fetch("/api/billing/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tier, interval: "monthly" })
-        });
+      const checkoutRes = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier, interval: "monthly" })
+      });
 
-        if (!checkoutRes.ok) {
-          console.error("Checkout API returned status:", checkoutRes.status);
-          router.replace("/dashboard");
-          return;
-        }
+      const checkoutData = await checkoutRes.json();
 
-        const checkoutText = await checkoutRes.text();
-        let checkoutData: { url?: string; error?: string };
-        try {
-          checkoutData = JSON.parse(checkoutText);
-        } catch {
-          console.error("Checkout response is not JSON:", checkoutText);
-          router.replace("/dashboard");
-          return;
-        }
-
-        if (checkoutData.url) {
-          window.location.href = checkoutData.url;
-        } else {
-          console.error("No checkout URL returned:", checkoutData);
-          router.replace("/dashboard");
-        }
-      } catch (checkoutError) {
-        console.error("Checkout failed, going to dashboard:", checkoutError);
+      if (checkoutRes.ok && checkoutData.url) {
+        window.location.href = checkoutData.url;
+      } else {
+        // Checkout failed — show error but still let user proceed
+        const errMsg = checkoutData.error || "Checkout unavailable";
+        toast({ title: "Subscription setup", description: `${errMsg}. You can set up billing later from Settings.` });
         router.replace("/dashboard");
       }
     } catch (error) {
-      toast({ title: "Something went wrong - try again", description: error instanceof Error ? error.message : undefined });
+      toast({ title: "Something went wrong", description: error instanceof Error ? error.message : "Unknown error" });
+      router.replace("/dashboard");
     } finally {
       setSubmitting(false);
     }
