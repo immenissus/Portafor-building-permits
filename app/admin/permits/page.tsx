@@ -57,7 +57,11 @@ export default function AdminPermitsPage() {
         limit: String(limit),
         offset: String(page * limit)
       });
-      return apiFetch<PermitsResponse>(`/admin/permits?${params.toString()}`, await getTokenOrThrow(getToken), {}, { isApiKey: false });
+      const res = await fetch(`/api/admin/permits?${params.toString()}`, {
+        headers: { "X-Admin-Key": process.env.NEXT_PUBLIC_ADMIN_API_KEY ?? "" }
+      });
+      if (!res.ok) throw new Error("Failed to fetch permits");
+      return res.json();
     }
   });
 
@@ -92,7 +96,7 @@ export default function AdminPermitsPage() {
   }
 
   const jurisdictions = jurisdictionsQuery.data ?? [];
-  const permits = permitsQuery.data?.permits ?? [];
+  const permits: Permit[] = permitsQuery.data?.permits ?? [];
   const total = permitsQuery.data?.total ?? 0;
   const totalPages = Math.ceil(total / limit);
 

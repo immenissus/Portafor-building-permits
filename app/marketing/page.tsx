@@ -81,7 +81,8 @@ const pricingTiers = [
       "30-day free trial"
     ],
     cta: "Start free trial",
-    popular: false
+    popular: false,
+    tier: "starter"
   },
   {
     name: "Professional",
@@ -96,7 +97,8 @@ const pricingTiers = [
       "Priority support"
     ],
     cta: "Start free trial",
-    popular: true
+    popular: true,
+    tier: "professional"
   },
   {
     name: "Enterprise",
@@ -111,16 +113,32 @@ const pricingTiers = [
       "Dedicated account manager",
       "Custom integrations"
     ],
-    cta: "Contact sales",
-    popular: false
+    cta: "Start free trial",
+    popular: false,
+    tier: "enterprise"
   }
 ];
 
 export default function MarketingPage() {
   return (
     <main className="min-h-screen bg-[#FAFAF8] overflow-hidden">
+      {/* Top Nav */}
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-stone-200/60 bg-[#FAFAF8]/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-8">
+          <Link href="/" className="text-xl font-semibold text-stone-950">Portafor</Link>
+          <div className="flex items-center gap-3">
+            <Link href="/sign-in" className="text-sm font-medium text-stone-600 hover:text-stone-900 transition">
+              Log in
+            </Link>
+            <Link href="/sign-up" className="rounded-xl bg-teal-700 px-5 py-2 text-sm font-medium text-white transition hover:bg-teal-800">
+              Start free trial
+            </Link>
+          </div>
+        </div>
+      </nav>
+
       {/* Hero */}
-      <section className="relative px-4 py-20 lg:px-8 lg:py-32">
+      <section className="relative px-4 pt-28 pb-20 lg:px-8 lg:pt-36 lg:py-32">
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-teal-100/40 blur-3xl" />
           <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-amber-100/30 blur-3xl" />
@@ -469,7 +487,7 @@ export default function MarketingPage() {
             viewport={{ once: true }}
             variants={stagger}
           >
-            {pricingTiers.map(({ name, price, description, features, cta, popular }) => (
+            {pricingTiers.map(({ name, price, description, features, cta, popular, tier }) => (
               <motion.div
                 key={name}
                 variants={fadeUp}
@@ -491,7 +509,7 @@ export default function MarketingPage() {
                 </div>
                 <p className="mt-2 text-sm text-stone-600">{description}</p>
                 <Link
-                  href={name === "Enterprise" ? "/contact" : "/sign-up"}
+                  href={`/sign-up?tier=${tier}`}
                   className={`mt-6 inline-flex w-full items-center justify-center rounded-xl px-6 py-3 text-sm font-medium transition ${
                     popular
                       ? "bg-teal-700 text-white hover:bg-teal-800"
@@ -574,6 +592,17 @@ export default function MarketingPage() {
           </motion.p>
         </motion.div>
       </section>
+
+      {/* Footer */}
+      <footer className="border-t border-stone-200 bg-white px-4 py-8 lg:px-8">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-stone-500 sm:flex-row">
+          <div>&copy; {new Date().getFullYear()} Portafor. All rights reserved.</div>
+          <div className="flex gap-6">
+            <Link href="/privacy" className="hover:text-stone-700 transition">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-stone-700 transition">Terms of Service</Link>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
