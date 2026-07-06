@@ -110,7 +110,22 @@ export default function OnboardingPage() {
           apiKey: subscriber.api_key
         }
       });
-      router.replace("/dashboard");
+
+      // Redirect to Stripe checkout
+      const tier = form.getValues("market") === "orlando" ? "professional" : "starter";
+      const checkoutRes = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier, interval: "monthly" })
+      });
+      const checkoutData = await checkoutRes.json();
+
+      if (checkoutData.url) {
+        window.location.href = checkoutData.url;
+      } else {
+        // If Stripe not configured, go to dashboard
+        router.replace("/dashboard");
+      }
     } catch (error) {
       toast({ title: "Something went wrong - try again", description: error instanceof Error ? error.message : undefined });
     } finally {

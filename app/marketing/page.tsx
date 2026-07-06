@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowRight, CheckCircle, Clock, Mail, Map, Search, Shield, Zap,
@@ -120,6 +121,8 @@ const pricingTiers = [
 ];
 
 export default function MarketingPage() {
+  const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
+
   return (
     <main className="min-h-screen bg-[#FAFAF8] overflow-hidden">
       {/* Top Nav */}
@@ -479,6 +482,21 @@ export default function MarketingPage() {
             <p className="mx-auto mt-3 max-w-xl text-center text-stone-600">
               Start free. Upgrade when you&apos;re ready. No contracts, no surprises.
             </p>
+            {/* Monthly / Yearly Toggle */}
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <button
+                onClick={() => setBillingInterval("monthly")}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${billingInterval === "monthly" ? "bg-teal-700 text-white" : "text-stone-600 hover:text-stone-900"}`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setBillingInterval("yearly")}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${billingInterval === "yearly" ? "bg-teal-700 text-white" : "text-stone-600 hover:text-stone-900"}`}
+              >
+                Yearly <span className="ml-1 text-xs text-amber-600">Save 20%</span>
+              </button>
+            </div>
           </motion.div>
           <motion.div
             className="mt-12 grid gap-6 lg:grid-cols-3"
@@ -487,7 +505,10 @@ export default function MarketingPage() {
             viewport={{ once: true }}
             variants={stagger}
           >
-            {pricingTiers.map(({ name, price, description, features, cta, popular, tier }) => (
+            {pricingTiers.map(({ name, price, description, features, cta, popular, tier }) => {
+              const displayPrice = billingInterval === "yearly" ? Math.round(price * 0.8) : price;
+              const yearlyTotal = price * 12 * 0.8;
+              return (
               <motion.div
                 key={name}
                 variants={fadeUp}
@@ -504,12 +525,15 @@ export default function MarketingPage() {
                 )}
                 <div className="text-sm font-medium text-stone-500">{name}</div>
                 <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-4xl font-semibold text-stone-950">${price}</span>
+                  <span className="text-4xl font-semibold text-stone-950">${displayPrice}</span>
                   <span className="text-stone-500">/month</span>
                 </div>
+                {billingInterval === "yearly" && (
+                  <p className="mt-1 text-xs text-stone-500">${yearlyTotal.toFixed(0)}/year — save ${(price * 12 - yearlyTotal).toFixed(0)}</p>
+                )}
                 <p className="mt-2 text-sm text-stone-600">{description}</p>
                 <Link
-                  href={`/sign-up?tier=${tier}`}
+                  href={`/sign-up?tier=${tier}&interval=${billingInterval}`}
                   className={`mt-6 inline-flex w-full items-center justify-center rounded-xl px-6 py-3 text-sm font-medium transition ${
                     popular
                       ? "bg-teal-700 text-white hover:bg-teal-800"
@@ -527,7 +551,8 @@ export default function MarketingPage() {
                   ))}
                 </ul>
               </motion.div>
-            ))}
+              );
+            })}
           </motion.div>
         </div>
       </section>
