@@ -1,77 +1,159 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PricingTable } from "@clerk/nextjs";
-import { useUser } from "@clerk/nextjs";
-import { ArrowLeft, CheckCircle, Mail, Map, Search, Shield, Zap } from "lucide-react";
-import Link from "next/link";
+import { CheckCircle, Loader2 } from "lucide-react";
+
+const tiers = [
+  {
+    name: "Starter",
+    price: 49,
+    yearlyPrice: 39,
+    description: "For solo contractors",
+    features: [
+      "1 city territory",
+      "Building permit alerts",
+      "Email notifications",
+      "Basic territory mapping",
+      "30-day free trial"
+    ],
+    tier: "starter",
+    popular: false
+  },
+  {
+    name: "Professional",
+    price: 99,
+    yearlyPrice: 79,
+    description: "For growing businesses",
+    features: [
+      "Up to 3 city territories",
+      "Building permits + business licenses",
+      "Instant email alerts",
+      "Advanced territory mapping",
+      "Filing search tool",
+      "Priority support"
+    ],
+    tier: "professional",
+    popular: true
+  },
+  {
+    name: "Enterprise",
+    price: 249,
+    yearlyPrice: 199,
+    description: "For multi-location teams",
+    features: [
+      "Unlimited city territories",
+      "All permit types",
+      "Instant alerts + daily digest",
+      "Team dashboard access",
+      "API access",
+      "Dedicated account manager",
+      "Custom integrations"
+    ],
+    tier: "enterprise",
+    popular: false
+  }
+];
 
 export default function PricingPage() {
   const router = useRouter();
-  const { user, isLoaded } = useUser();
+  const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
+  const [loadingTier, setLoadingTier] = useState<string | null>(null);
 
-  const hasActivePlan = user?.publicMetadata?.plan && user.publicMetadata.plan !== "Free";
-
-  // If user already has a plan, redirect to dashboard
-  if (isLoaded && hasActivePlan) {
-    router.replace("/dashboard");
-    return null;
+  async function handleSubscribe(tier: string) {
+    setLoadingTier(tier);
+    try {
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier, interval: billingInterval })
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || "Failed to start checkout");
+        setLoadingTier(null);
+      }
+    } catch {
+      alert("Something went wrong. Please try again.");
+      setLoadingTier(null);
+    }
   }
 
   return (
-    <main className="min-h-screen bg-[#FAFAF8]">
-      {/* Simple nav */}
-      <nav className="border-b border-stone-200/60 bg-[#FAFAF8]/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-8">
-          <Link href="/" className="text-xl font-semibold text-stone-950">Portafor</Link>
-          <Link href="/sign-in" className="text-sm font-medium text-stone-600 hover:text-stone-900 transition">
-            Log in
-          </Link>
+    <main className="flex min-h-screen items-center justify-center bg-[#FAFAF8] px-4 py-12">
+      <div className="w-full max-w-4xl">
+        {/* Toggle */}
+        <div className="mb-8 flex items-center justify-center gap-3">
+          <button
+            onClick={() => setBillingInterval("monthly")}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${billingInterval === "monthly" ? "bg-teal-700 text-white" : "text-stone-600 hover:text-stone-900"}`}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setBillingInterval("yearly")}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${billingInterval === "yearly" ? "bg-teal-700 text-white" : "text-stone-600 hover:text-stone-900"}`}
+          >
+            Yearly <span className="ml-1 text-xs text-amber-600">Save 20%</span>
+          </button>
         </div>
-      </nav>
 
-      <div className="px-4 py-12 lg:px-8">
-        <div className="mx-auto max-w-4xl">
-          {/* Header */}
-          <div className="mb-10 text-center">
-            <h1 className="text-3xl font-semibold text-stone-950 sm:text-4xl">
-              Choose your plan
-            </h1>
-            <p className="mt-3 text-lg text-stone-600">
-              Start your 30-day free trial. Cancel anytime.
-            </p>
-          </div>
-
-          {/* What you get */}
-          <div className="mb-10 grid gap-4 sm:grid-cols-3">
-            {[
-              { icon: Map, title: "Territory mapping", desc: "Draw your exact service area" },
-              { icon: Search, title: "Filing search", desc: "Find permits near any address" },
-              { icon: Mail, title: "Email alerts", desc: "Get notified of new permits" }
-            ].map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-4">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
-                  <Icon className="h-5 w-5" />
+        {/* Cards */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {tiers.map(({ name, price, yearlyPrice, description, features, tier, popular }) => {
+            const displayPrice = billingInterval === "yearly" ? yearlyPrice : price;
+            const isLoading = loadingTier === tier;
+            return (
+              <div
+                key={tier}
+                className={`relative rounded-2xl border p-6 ${
+                  popular
+                    ? "border-teal-200 bg-white shadow-lg shadow-teal-100/50 ring-1 ring-teal-100"
+                    : "border-stone-200 bg-white"
+                }`}
+              >
+                {popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-teal-700 px-4 py-1 text-xs font-medium text-white">
+                    Most popular
+                  </div>
+                )}
+                <div className="text-sm font-medium text-stone-500">{name}</div>
+                <div className="mt-2 flex items-baseline gap-1">
+                  <span className="text-4xl font-semibold text-stone-950">${displayPrice}</span>
+                  <span className="text-stone-500">/month</span>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-stone-900">{title}</p>
-                  <p className="text-xs text-stone-500">{desc}</p>
-                </div>
+                {billingInterval === "yearly" && (
+                  <p className="mt-1 text-xs text-stone-500">${displayPrice * 12}/year — save ${(price * 12) - (yearlyPrice * 12)}</p>
+                )}
+                <p className="mt-2 text-sm text-stone-600">{description}</p>
+                <button
+                  onClick={() => handleSubscribe(tier)}
+                  disabled={isLoading}
+                  className={`mt-6 inline-flex w-full items-center justify-center rounded-xl px-6 py-3 text-sm font-medium transition ${
+                    popular
+                      ? "bg-teal-700 text-white hover:bg-teal-800"
+                      : "border border-stone-200 text-stone-700 hover:bg-stone-50"
+                  } disabled:opacity-50`}
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Start free trial"
+                  )}
+                </button>
+                <ul className="mt-6 space-y-3">
+                  {features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-2.5 text-sm text-stone-600">
+                      <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-teal-600" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            ))}
-          </div>
-
-          {/* Clerk PricingTable */}
-          <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
-            <PricingTable />
-          </div>
-
-          {/* Back link */}
-          <div className="mt-8 text-center">
-            <Link href="/" className="inline-flex items-center gap-2 text-sm text-stone-500 hover:text-stone-700 transition">
-              <ArrowLeft className="h-4 w-4" /> Back to home
-            </Link>
-          </div>
+            );
+          })}
         </div>
       </div>
     </main>

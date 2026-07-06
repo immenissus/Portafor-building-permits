@@ -87,28 +87,44 @@ export async function POST(request: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         if (clerkUserId) {
+          const session = event.data.object as Stripe.Checkout.Session;
+          const tier = session.metadata?.tier || "starter";
+          const interval = session.metadata?.interval || "monthly";
+          const planName = tier.charAt(0).toUpperCase() + tier.slice(1) + (interval === "yearly" ? " Yearly" : "");
           await clerk.users.updateUser(clerkUserId, {
             publicMetadata: {
-              plan: "Starter Yearly",
+              plan: planName,
               status: "active"
             }
           });
           processedSuccessfully = true;
-          console.log(`Successfully provisioned Starter Yearly for user ${clerkUserId}`);
+          console.log(`Provisioned ${planName} for user ${clerkUserId}`);
         }
         break;
       }
 
       case "invoice.paid": {
         if (clerkUserId) {
+          const invoice = event.data.object as Stripe.Invoice;
+          const subId = invoice.subscription as string;
+          let planName = "Starter";
+          if (subId) {
+            try {
+              const sub = await stripe.subscriptions.retrieve(subId);
+              const priceId = sub.items.data[0]?.price.id;
+              if (priceId === process.env.STRIPE_PRO_PRICE_ID || priceId === process.env.STRIPE_PRO_YEARLY_PRICE_ID) planName = "Professional";
+              else if (priceId === process.env.STRIPE_ENTERPRISE_PRICE_ID) planName = "Enterprise";
+              if (sub.items.data[0]?.price.recurring?.interval === "year") planName += " Yearly";
+            } catch {}
+          }
           await clerk.users.updateUser(clerkUserId, {
             publicMetadata: {
-              plan: "Starter Yearly",
+              plan: planName,
               status: "active"
             }
           });
           processedSuccessfully = true;
-          console.log(`Successfully renewed Starter Yearly for user ${clerkUserId}`);
+          console.log(`Renewed ${planName} for user ${clerkUserId}`);
         }
         break;
       }

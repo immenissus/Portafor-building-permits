@@ -6,7 +6,8 @@ export default async function HomePage() {
   const { userId } = await auth();
 
   if (userId) {
-    redirect("/dashboard");
+    // Redirect to pricing (subscription gate in dashboard will handle the rest)
+    redirect("/pricing");
   }
 
   return <MarketingPage />;

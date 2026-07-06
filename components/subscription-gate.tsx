@@ -1,22 +1,28 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 
 export function SubscriptionGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isLoaded } = useUser();
+  const [allowed, setAllowed] = useState(false);
 
   const hasActivePlan = user?.publicMetadata?.plan && user.publicMetadata.plan !== "Free";
+  const justCheckedOut = searchParams.get("checkout") === "success";
 
   useEffect(() => {
-    if (isLoaded && !hasActivePlan) {
+    if (!isLoaded) return;
+
+    if (hasActivePlan || justCheckedOut) {
+      setAllowed(true);
+    } else {
       router.replace("/pricing");
     }
-  }, [isLoaded, hasActivePlan, router]);
+  }, [isLoaded, hasActivePlan, justCheckedOut, router]);
 
-  // Don't render anything until we know the user's plan status
   if (!isLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -25,10 +31,7 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If no plan, show nothing (will redirect)
-  if (!hasActivePlan) {
-    return null;
-  }
+  if (!allowed) return null;
 
   return <>{children}</>;
 }
