@@ -23,6 +23,7 @@ export const subscribers = pgTable("subscribers", {
   serviceArea: geometry("service_area").notNull(), // PostGIS Polygon
   radiusKm: integer("radius_km"),
   apiKey: varchar("api_key", { length: 255 }).unique(),
+  market: varchar("market", { length: 100 }),
   status: varchar("status", { length: 50 }).default("active").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()

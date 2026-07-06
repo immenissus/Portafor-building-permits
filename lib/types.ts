@@ -1,5 +1,6 @@
 export type FilingType = "building_permit" | "business_license";
 export type BusinessType = "roofer" | "hvac" | "solar" | "insurance" | "lawyer" | "other";
+export type Market = "austin" | "orlando";
 
 export type ServiceArea = GeoJSON.Polygon | GeoJSON.MultiPolygon;
 
@@ -20,6 +21,7 @@ export type Subscriber = {
   filing_type_filters: FilingType[];
   service_area: ServiceArea;
   radius_km?: number;
+  market?: Market;
   created_at: string;
   recent_alerts: Alert[];
   api_key?: string;
@@ -42,4 +44,5 @@ export type SubscriberPayload = {
   business_type: BusinessType;
   filing_type_filters: FilingType[];
   service_area: ServiceArea;
+  market?: Market;
 };
