@@ -55,7 +55,7 @@ export default function OnboardingPage() {
 
   function updateCircleRadius(radius: number) {
     setCircleRadius(radius);
-    const center = circleCenterCoords || [-97.7431, 30.2672]; // Default Austin center
+    const center = circleCenterCoords || (market === "orlando" ? [-81.3789, 28.5383] as [number, number] : [-97.7431, 30.2672] as [number, number]);
     if (!circleCenterCoords) {
       setCircleCenterCoords(center);
     }
@@ -70,6 +70,7 @@ export default function OnboardingPage() {
     const circlePolygon = createCirclePolygon(coords, circleRadius);
     setServiceArea(circlePolygon);
   }
+
   const form = useForm<FormValues>({
     resolver: zodResolver(subscriberSchema),
     defaultValues: {
@@ -79,15 +80,12 @@ export default function OnboardingPage() {
       market: "austin"
     }
   });
-  const values = form.watch();
-  const previewUrl = useMemo(() => serviceArea ? staticPolygonUrl(serviceArea) : "", [serviceArea]);
 
   async function continueFromDetails() {
     const valid = await form.trigger();
     if (valid) {
       setStep(3);
       if (drawMode === "circle" && !serviceArea) {
-        // Default center based on selected market
         const defaults: Record<string, [number, number]> = {
           austin: [-97.7431, 30.2672],
           orlando: [-81.3789, 28.5383]
@@ -105,12 +103,12 @@ export default function OnboardingPage() {
     setSubmitting(true);
     try {
       const subscriber = await upsertSubscriber({ ...form.getValues(), service_area: serviceArea }, await getTokenOrThrow(getToken));
-      await user?.update({ 
-        unsafeMetadata: { 
-          ...user.unsafeMetadata, 
+      await user?.update({
+        unsafeMetadata: {
+          ...user.unsafeMetadata,
           subscriberId: subscriber.id,
-          apiKey: subscriber.api_key 
-        } 
+          apiKey: subscriber.api_key
+        }
       });
       router.replace("/dashboard");
     } catch (error) {
@@ -126,7 +124,7 @@ export default function OnboardingPage() {
         <div className="mb-8 flex items-center justify-between">
           <p className="text-2xl font-semibold text-stone-950">Portafor</p>
           <div className="flex gap-2">
-            {[1, 2, 3, 4].map((item) => (
+            {[1, 2, 3].map((item) => (
               <span key={item} className={`rounded-full px-3 py-1 text-sm font-medium ${step >= item ? "bg-teal-700 text-white" : "bg-stone-200 text-stone-600"}`}>
                 {item}
               </span>
@@ -134,14 +132,15 @@ export default function OnboardingPage() {
           </div>
         </div>
 
+        {/* Step 1: Choose city */}
         {step === 1 ? (
           <Card className="mx-auto max-w-2xl p-6">
             <h1 className="text-2xl font-semibold">Choose your city</h1>
             <p className="mt-2 text-stone-600">Select the market where you operate. We currently monitor permits in these cities.</p>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {[
-                { id: "austin" as const, name: "Austin, TX", desc: "5,000+ permits tracked monthly", defaultCenter: [-97.7431, 30.2672] as [number, number] },
-                { id: "orlando" as const, name: "Orlando, FL", desc: "Active building permit feed", defaultCenter: [-81.3789, 28.5383] as [number, number] }
+                { id: "austin" as const, name: "Austin, TX", desc: "5,000+ permits tracked monthly" },
+                { id: "orlando" as const, name: "Orlando, FL", desc: "Active building permit feed" }
               ].map((city) => (
                 <button
                   key={city.id}
@@ -170,6 +169,7 @@ export default function OnboardingPage() {
           </Card>
         ) : null}
 
+        {/* Step 2: Business details */}
         {step === 2 ? (
           <Card className="mx-auto max-w-2xl p-6">
             <div className="mb-4 flex items-center justify-between">
@@ -213,16 +213,19 @@ export default function OnboardingPage() {
           </Card>
         ) : null}
 
+        {/* Step 3: Map + Activate */}
         {step === 3 ? (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="text-2xl font-semibold">Define your territory</h1>
-                <p className="text-sm text-stone-600">Choose how to draw your service area boundary.</p>
+                <h1 className="text-2xl font-semibold">Draw your territory</h1>
+                <p className="text-sm text-stone-600">Define the area you serve. We&apos;ll monitor permits inside this zone.</p>
               </div>
               <div className="flex gap-2">
                 <Button variant="secondary" onClick={() => setStep(2)}><ChevronLeft className="h-4 w-4" /> Back</Button>
-                <Button onClick={() => setStep(4)} disabled={!serviceArea}>Continue <ChevronRight className="h-4 w-4" /></Button>
+                <Button onClick={activate} disabled={submitting || !serviceArea}>
+                  <Check className="h-4 w-4" /> {submitting ? "Activating..." : "Activate alerts"}
+                </Button>
               </div>
             </div>
 
@@ -253,7 +256,7 @@ export default function OnboardingPage() {
                         id="circleAddress"
                         value={circleCenterAddress}
                         onChange={(e) => setCircleCenterAddress(e.target.value)}
-                        placeholder="e.g. 1100 Congress Ave, Austin, TX"
+                        placeholder={market === "orlando" ? "e.g. 123 Main St, Orlando, FL" : "e.g. 1100 Congress Ave, Austin, TX"}
                       />
                       <Button type="button" onClick={searchCircleCenter} disabled={geocodingCircle}>
                         {geocodingCircle ? "Searching..." : "Search"}
@@ -291,30 +294,6 @@ export default function OnboardingPage() {
               className="h-[calc(100vh-270px)] min-h-[480px] w-full rounded-xl border border-stone-200"
             />
           </div>
-        ) : null}
-
-        {step === 3 ? (
-          <Card className="mx-auto max-w-3xl overflow-hidden">
-            {previewUrl ? <img src={previewUrl} alt="" className="h-72 w-full object-cover" /> : <div className="h-72 bg-stone-100" />}
-            <div className="space-y-5 p-6">
-              <div>
-                <h1 className="text-2xl font-semibold">Confirm and activate</h1>
-                <p className="mt-1 text-stone-600">We will email you when matching filings land inside this area.</p>
-              </div>
-              <dl className="grid gap-4 sm:grid-cols-4">
-                <div><dt className="text-sm text-stone-500">City</dt><dd className="font-medium">{market === "orlando" ? "Orlando, FL" : "Austin, TX"}</dd></div>
-                <div><dt className="text-sm text-stone-500">Business</dt><dd className="font-medium">{values.business_name}</dd></div>
-                <div><dt className="text-sm text-stone-500">Type</dt><dd className="font-medium">{businessTypeLabel(values.business_type)}</dd></div>
-                <div><dt className="text-sm text-stone-500">Watching</dt><dd className="font-medium">{values.filing_type_filters.length} filing types</dd></div>
-              </dl>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={() => setStep(3)}><ChevronLeft className="h-4 w-4" /> Back</Button>
-                <Button onClick={activate} disabled={submitting || !serviceArea}>
-                  <Check className="h-4 w-4" /> {submitting ? "Activating..." : "Activate alerts"}
-                </Button>
-              </div>
-            </div>
-          </Card>
         ) : null}
       </div>
     </main>
