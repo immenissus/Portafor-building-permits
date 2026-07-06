@@ -110,7 +110,7 @@ export default function OnboardingPage() {
           apiKey: subscriber.api_key
         }
       });
-      router.replace("/dashboard");
+      router.replace("/pricing");
     } catch (error) {
       toast({ title: "Something went wrong", description: error instanceof Error ? error.message : "Unknown error" });
     } finally {

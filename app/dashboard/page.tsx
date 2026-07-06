@@ -1,10 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
-import { PricingTable } from "@clerk/nextjs";
-import { BellRing, CreditCard, MapPinned, X } from "lucide-react";
+import { BellRing, MapPinned } from "lucide-react";
 import { AlertMapModal } from "@/components/map/alert-map-modal";
 import { FilingBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,14 +13,10 @@ import type { Alert } from "@/lib/types";
 import { relativeTime, staticMapUrl } from "@/lib/utils";
 
 export default function DashboardPage() {
-  const { user } = useUser();
   const [filter, setFilter] = useState("all");
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [visibleCount, setVisibleCount] = useState(10);
-  const [showPricing, setShowPricing] = useState(false);
   const subscriber = useSubscriber();
-
-  const hasActivePlan = user?.publicMetadata?.plan && user.publicMetadata.plan !== "Free";
 
   const alerts = useMemo(() => {
     const items = subscriber.data?.recent_alerts ?? [];
@@ -32,37 +25,6 @@ export default function DashboardPage() {
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
-      {/* Subscription Prompt */}
-      {!hasActivePlan && !showPricing && (
-        <Card className="mb-6 border-amber-200 bg-amber-50 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <CreditCard className="h-5 w-5 text-amber-600" />
-              <div>
-                <p className="font-medium text-stone-900">Start your free trial</p>
-                <p className="text-sm text-stone-600">Subscribe to start receiving permit alerts in your territory.</p>
-              </div>
-            </div>
-            <Button onClick={() => setShowPricing(true)} size="sm">
-              View plans
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* Inline Pricing Table */}
-      {showPricing && (
-        <Card className="mb-6 p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Choose your plan</h2>
-            <button onClick={() => setShowPricing(false)} className="text-stone-400 hover:text-stone-600">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <PricingTable />
-        </Card>
-      )}
-
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-stone-950">Recent alerts</h1>

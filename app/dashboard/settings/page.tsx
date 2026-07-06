@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth, useUser } from "@clerk/nextjs";
-import { PricingTable } from "@clerk/nextjs";
 import { useQueryClient } from "@tanstack/react-query";
-import { CreditCard, ExternalLink, Save } from "lucide-react";
+import { CreditCard, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/field";
@@ -25,7 +25,6 @@ export default function SettingsPage() {
   const [businessType, setBusinessType] = useState<BusinessType>("roofer");
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [digest, setDigest] = useState("instant");
-  const [showPricing, setShowPricing] = useState(false);
 
   const hasActivePlan = user?.publicMetadata?.plan && user.publicMetadata.plan !== "Free";
 
@@ -48,7 +47,7 @@ export default function SettingsPage() {
       const response = await fetch("/api/alerts/test", { method: "POST" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || "Failed to dispatch test alert");
-      toast({ title: "Test Alert Sent!", description: `A mock roofing lead alert has been dispatched to ${data.email}. Check your inbox!` });
+      toast({ title: "Test Alert Sent!", description: `A mock alert has been dispatched to ${data.email}. Check your inbox!` });
     } catch (err) {
       toast({ title: "Test Alert Failed", description: err instanceof Error ? err.message : "Something went wrong" });
     } finally {
@@ -133,30 +132,17 @@ export default function SettingsPage() {
 
       <Card className="p-5">
         <h2 className="text-lg font-semibold">Billing</h2>
-        <div className="mt-4 rounded-xl border border-stone-200 bg-stone-50 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="font-medium">{hasActivePlan ? `${user.publicMetadata.plan} plan` : "No active plan"}</p>
-              <p className="text-sm text-stone-500">{hasActivePlan ? "Active subscription" : "Subscribe to start receiving alerts"}</p>
-            </div>
-            <div className="flex gap-2">
-              {hasActivePlan ? (
-                <Button variant="secondary" onClick={() => setShowPricing(!showPricing)}>
-                  <CreditCard className="h-4 w-4" /> Manage subscription
-                </Button>
-              ) : (
-                <Button onClick={() => setShowPricing(!showPricing)}>
-                  <CreditCard className="h-4 w-4" /> Subscribe now
-                </Button>
-              )}
-            </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-stone-200 bg-stone-50 p-4">
+          <div>
+            <p className="font-medium">{hasActivePlan ? `${user.publicMetadata.plan} plan` : "No active plan"}</p>
+            <p className="text-sm text-stone-500">{hasActivePlan ? "Active subscription" : "Subscribe to start receiving alerts"}</p>
           </div>
+          <Link href="/pricing">
+            <Button variant={hasActivePlan ? "secondary" : "primary"}>
+              <CreditCard className="h-4 w-4" /> {hasActivePlan ? "Manage subscription" : "Subscribe now"}
+            </Button>
+          </Link>
         </div>
-        {showPricing && (
-          <div className="mt-4">
-            <PricingTable />
-          </div>
-        )}
       </Card>
     </section>
   );
