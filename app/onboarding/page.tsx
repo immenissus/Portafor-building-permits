@@ -102,7 +102,6 @@ export default function OnboardingPage() {
     if (!serviceArea) return;
     setSubmitting(true);
     try {
-      // 1. Save subscriber
       const subscriber = await upsertSubscriber({ ...form.getValues(), service_area: serviceArea }, await getTokenOrThrow(getToken));
       await user?.update({
         unsafeMetadata: {
@@ -111,28 +110,9 @@ export default function OnboardingPage() {
           apiKey: subscriber.api_key
         }
       });
-
-      // 2. Redirect to Stripe checkout
-      const tier = form.getValues("market") === "orlando" ? "professional" : "starter";
-      const checkoutRes = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier, interval: "monthly" })
-      });
-
-      const checkoutData = await checkoutRes.json();
-
-      if (checkoutRes.ok && checkoutData.url) {
-        window.location.href = checkoutData.url;
-      } else {
-        // Checkout failed — show error but still let user proceed
-        const errMsg = checkoutData.error || "Checkout unavailable";
-        toast({ title: "Subscription setup", description: `${errMsg}. You can set up billing later from Settings.` });
-        router.replace("/dashboard");
-      }
+      router.replace("/dashboard");
     } catch (error) {
       toast({ title: "Something went wrong", description: error instanceof Error ? error.message : "Unknown error" });
-      router.replace("/dashboard");
     } finally {
       setSubmitting(false);
     }
