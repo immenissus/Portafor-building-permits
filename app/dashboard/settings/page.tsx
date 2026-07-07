@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth, useUser } from "@clerk/nextjs";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -23,16 +23,38 @@ export default function SettingsPage() {
   const [editing, setEditing] = useState(false);
   const [businessName, setBusinessName] = useState("");
   const [businessType, setBusinessType] = useState<BusinessType>("roofer");
+  const [editEmail, setEditEmail] = useState("");
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [digest, setDigest] = useState("instant");
 
-  const hasActivePlan = user?.publicMetadata?.plan && user.publicMetadata.plan !== "Free";
+  // Fetch billing status from API (survives stale JWT)
+  const billing = useQuery({
+    queryKey: ["billing-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/billing/status");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 30_000
+  });
+
+  // Combine Clerk JWT plan with API billing status (prefer freshest)
+  const clerkPlan = user?.publicMetadata?.plan as string | undefined;
+  const apiPlan = billing.data?.plan as string | undefined;
+  const activePlan = apiPlan || clerkPlan;
+  const hasActivePlan = activePlan && activePlan !== "Free";
 
   useEffect(() => {
     if (!subscriber.data) return;
     setBusinessName(subscriber.data.business_name);
     setBusinessType(subscriber.data.business_type);
   }, [subscriber.data]);
+
+  // Initialise email from subscriber data or Clerk
+  useEffect(() => {
+    const subEmail = (subscriber.data as any)?.email as string | undefined;
+    setEditEmail(subEmail || user?.primaryEmailAddress?.emailAddress || "");
+  }, [subscriber.data, user]);
 
   useEffect(() => {
     setEmailAlerts(localStorage.getItem("portafor.emailAlerts") !== "false");
@@ -67,7 +89,8 @@ export default function SettingsPage() {
         business_name: businessName,
         business_type: businessType,
         filing_type_filters: subscriber.data.filing_type_filters,
-        service_area: subscriber.data.service_area
+        service_area: subscriber.data.service_area,
+        email: editEmail || undefined
       }, await getTokenOrThrow(getToken));
       await queryClient.invalidateQueries({ queryKey: ["subscriber"] });
       setEditing(false);
@@ -76,6 +99,8 @@ export default function SettingsPage() {
       toast({ title: "Something went wrong - try again", description: error instanceof Error ? error.message : undefined });
     }
   }
+
+  const displayEmail = editEmail || user?.primaryEmailAddress?.emailAddress || "—";
 
   return (
     <section className="mx-auto max-w-4xl space-y-5 px-4 py-8 lg:px-8">
@@ -93,13 +118,14 @@ export default function SettingsPage() {
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div className="space-y-2"><Label>Business name</Label><Input value={businessName} onChange={(event) => setBusinessName(event.target.value)} /></div>
             <div className="space-y-2"><Label>Business type</Label><Select value={businessType} onChange={(event) => setBusinessType(event.target.value as BusinessType)}><option value="roofer">Roofer</option><option value="hvac">HVAC</option><option value="solar">Solar installer</option><option value="insurance">Insurance agent</option><option value="lawyer">Lawyer</option><option value="other">Other</option></Select></div>
+            <div className="space-y-2 sm:col-span-2"><Label>Email for alerts</Label><Input type="email" value={editEmail} onChange={(event) => setEditEmail(event.target.value)} placeholder="you@company.com" /></div>
             <Button onClick={saveProfile} className="sm:col-span-2"><Save className="h-4 w-4" /> Save profile</Button>
           </div>
         ) : (
           <dl className="mt-4 grid gap-4 sm:grid-cols-3">
             <div><dt className="text-sm text-stone-500">Business</dt><dd className="font-medium">{subscriber.data?.business_name}</dd></div>
             <div><dt className="text-sm text-stone-500">Type</dt><dd className="font-medium">{businessTypeLabel(subscriber.data?.business_type ?? "")}</dd></div>
-            <div><dt className="text-sm text-stone-500">Email</dt><dd className="font-medium">{user?.primaryEmailAddress?.emailAddress}</dd></div>
+            <div><dt className="text-sm text-stone-500">Email</dt><dd className="font-medium">{displayEmail}</dd></div>
           </dl>
         )}
       </Card>
@@ -134,7 +160,7 @@ export default function SettingsPage() {
         <h2 className="text-lg font-semibold">Billing</h2>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-stone-200 bg-stone-50 p-4">
           <div>
-            <p className="font-medium">{hasActivePlan ? `${user.publicMetadata.plan} plan` : "No active plan"}</p>
+            <p className="font-medium">{hasActivePlan ? `${activePlan} plan` : "No active plan"}</p>
             <p className="text-sm text-stone-500">{hasActivePlan ? "Active subscription" : "Subscribe to start receiving alerts"}</p>
           </div>
           <Link href="/pricing">

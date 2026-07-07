@@ -25,7 +25,8 @@ export async function POST(request: Request) {
     const email = user.emailAddresses[0]?.emailAddress ?? "";
 
     const body = await request.json();
-    const { business_name, business_type, filing_type_filters, service_area, market } = body;
+    const { business_name, business_type, filing_type_filters, service_area, email: bodyEmail, market } = body;
+    const subscriberEmail = bodyEmail || email;
 
     if (!business_name || !business_type || !filing_type_filters || !service_area) {
       return NextResponse.json({ detail: "Missing required fields" }, { status: 400 });
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
           businessType: business_type,
           filingTypeFilters: filing_type_filters,
           serviceArea: sql`ST_GeomFromGeoJSON(${serviceAreaGeoJson})`,
+          ...(bodyEmail ? { email: bodyEmail } : {}),
           market: market || "austin",
           updatedAt: new Date()
         })
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
       // Perform Insert
       await db.insert(subscribers).values({
         id: userId,
-        email: email,
+        email: subscriberEmail,
         businessName: business_name,
         businessType: business_type,
         filingTypeFilters: filing_type_filters,

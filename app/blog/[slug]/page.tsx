@@ -64,7 +64,6 @@ export default function BlogPostPage() {
 
   return (
     <main className="min-h-screen bg-[#FAFAF8]">
-      {/* Nav */}
       <nav className="border-b border-stone-200/60 bg-[#FAFAF8]/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-8">
           <Link href="/" className="text-xl font-semibold text-stone-950">Portafor</Link>
@@ -93,7 +92,7 @@ export default function BlogPostPage() {
 
         {post.tags && post.tags.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
-            {(post.tags as string[]).map((tag: string) => (
+            {post.tags.map((tag: string) => (
               <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-0.5 text-xs text-stone-600">
                 <Tag className="h-3 w-3" />{tag}
               </span>

@@ -27,7 +27,6 @@ export default function BlogPage() {
 
   return (
     <main className="min-h-screen bg-[#FAFAF8]">
-      {/* Nav */}
       <nav className="border-b border-stone-200/60 bg-[#FAFAF8]/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-8">
           <Link href="/" className="text-xl font-semibold text-stone-950">Portafor</Link>

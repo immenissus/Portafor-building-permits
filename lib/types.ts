@@ -16,6 +16,7 @@ export type Alert = {
 
 export type Subscriber = {
   id: string;
+  email?: string;
   business_name: string;
   business_type: BusinessType;
   filing_type_filters: FilingType[];
@@ -44,5 +45,6 @@ export type SubscriberPayload = {
   business_type: BusinessType;
   filing_type_filters: FilingType[];
   service_area: ServiceArea;
+  email?: string;
   market?: Market;
 };
