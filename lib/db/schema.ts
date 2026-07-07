@@ -89,3 +89,19 @@ export const stripeWebhookEvents = pgTable("stripe_webhook_events", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   processedAt: timestamp("processed_at")
 });
+
+// BLOG POSTS
+export const blogPosts = pgTable("blog_posts", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  title: varchar("title", { length: 500 }).notNull(),
+  slug: varchar("slug", { length: 500 }).notNull().unique(),
+  excerpt: text("excerpt"),
+  content: text("content").notNull(),
+  coverImage: varchar("cover_image", { length: 1000 }),
+  author: varchar("author", { length: 255 }).default("Portafor Team"),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  published: boolean("published").default(false).notNull(),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});

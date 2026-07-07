@@ -384,6 +384,7 @@ export default function MarketingPage() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-stone-500 sm:flex-row">
           <div>&copy; {new Date().getFullYear()} Portafor. All rights reserved.</div>
           <div className="flex gap-6">
+            <Link href="/blog" className="hover:text-stone-700 transition">Blog</Link>
             <Link href="/privacy" className="hover:text-stone-700 transition">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-stone-700 transition">Terms of Service</Link>
           </div>
