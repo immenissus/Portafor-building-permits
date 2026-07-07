@@ -1,12 +1,7 @@
-"use client";
+import { DashboardClient } from "@/components/dashboard-client";
 
-import { DashboardShell } from "@/components/dashboard-shell";
-import { SubscriptionGate } from "@/components/subscription-gate";
+export const dynamic = "force-dynamic";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <SubscriptionGate>
-      <DashboardShell>{children}</DashboardShell>
-    </SubscriptionGate>
-  );
+  return <DashboardClient>{children}</DashboardClient>;
 }

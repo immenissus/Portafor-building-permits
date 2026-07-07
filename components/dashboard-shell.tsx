@@ -53,7 +53,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           ) : null}
         </nav>
         <div className="flex items-center gap-3 border-t border-stone-200 pt-4">
-          <UserButton afterSignOutUrl="/sign-in" />
+          <UserButton />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-stone-900">{user?.fullName ?? user?.primaryEmailAddress?.emailAddress}</p>
             <SignOutButton>

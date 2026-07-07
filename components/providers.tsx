@@ -13,7 +13,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }));
 
   return (
-    <ClerkProvider>
+    <ClerkProvider afterSignOutUrl="/sign-in">
       <QueryClientProvider client={queryClient}>
         <ToastProvider>{children}</ToastProvider>
       </QueryClientProvider>
