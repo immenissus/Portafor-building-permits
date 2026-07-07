@@ -31,6 +31,22 @@ export default function BlogPostPage() {
     enabled: Boolean(slug)
   });
 
+  const postSchema = post ? {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    url: `https://portafor.info/blog/${post.slug}`,
+    datePublished: post.publishedAt || undefined,
+    author: { "@type": "Person", name: post.author },
+    publisher: {
+      "@type": "Organization",
+      name: "Portafor",
+      url: "https://portafor.info"
+    },
+    description: post.excerpt || post.title,
+    image: post.coverImage || undefined
+  } : null;
+
   if (isLoading) {
     return (
       <main className="min-h-screen bg-[#FAFAF8]">
@@ -64,6 +80,10 @@ export default function BlogPostPage() {
 
   return (
     <main className="min-h-screen bg-[#FAFAF8]">
+      {postSchema && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(postSchema) }} />
+      )}
+
       <nav className="border-b border-stone-200/60 bg-[#FAFAF8]/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-8">
           <Link href="/" className="text-xl font-semibold text-stone-950">Portafor</Link>

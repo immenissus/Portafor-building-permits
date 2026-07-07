@@ -25,8 +25,26 @@ export default function BlogPage() {
     }
   });
 
+  const listSchema = posts && posts.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    name: "Portafor Blog",
+    url: "https://portafor.info/blog",
+    blogPost: posts.map((p: BlogPost) => ({
+      "@type": "BlogPosting",
+      headline: p.title,
+      url: `https://portafor.info/blog/${p.slug}`,
+      datePublished: p.publishedAt || undefined,
+      author: { "@type": "Person", name: p.author }
+    }))
+  } : null;
+
   return (
     <main className="min-h-screen bg-[#FAFAF8]">
+      {listSchema && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(listSchema) }} />
+      )}
+
       <nav className="border-b border-stone-200/60 bg-[#FAFAF8]/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-8">
           <Link href="/" className="text-xl font-semibold text-stone-950">Portafor</Link>
