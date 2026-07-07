@@ -18,13 +18,28 @@ function SubscriptionGateInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isLoaded) return;
 
+    // If just came from Stripe checkout, save to localStorage and allow
     if (justCheckedOut) {
-      // Just came from Stripe — allow through, webhook will update metadata
+      localStorage.setItem("portafor_checkout_success", Date.now().toString());
       setAllowed(true);
-    } else if (hasActivePlan) {
+      return;
+    }
+
+    // Check if we recently checked out (within last 5 minutes)
+    const checkoutTime = localStorage.getItem("portafor_checkout_success");
+    if (checkoutTime) {
+      const elapsed = Date.now() - parseInt(checkoutTime);
+      if (elapsed < 5 * 60 * 1000) {
+        setAllowed(true);
+        return;
+      }
+      // Expired — remove it
+      localStorage.removeItem("portafor_checkout_success");
+    }
+
+    if (hasActivePlan) {
       setAllowed(true);
     } else {
-      // No plan or expired — redirect to pricing
       router.replace("/pricing");
     }
   }, [isLoaded, hasActivePlan, justCheckedOut, router]);
