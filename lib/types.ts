@@ -1,6 +1,6 @@
 export type FilingType = "building_permit" | "business_license";
 export type BusinessType = "roofer" | "hvac" | "solar" | "insurance" | "lawyer" | "other";
-export type Market = "austin" | "orlando";
+export type Market = string;
 
 export type ServiceArea = GeoJSON.Polygon | GeoJSON.MultiPolygon;
 

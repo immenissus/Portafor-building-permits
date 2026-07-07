@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     if (tier === "professional") {
       priceId = interval === "yearly" ? process.env.STRIPE_PRO_YEARLY_PRICE_ID : process.env.STRIPE_PRO_PRICE_ID;
     } else if (tier === "enterprise") {
-      priceId = process.env.STRIPE_ENTERPRISE_PRICE_ID;
+      priceId = interval === "yearly" ? process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID : process.env.STRIPE_ENTERPRISE_PRICE_ID;
     } else {
       priceId = interval === "yearly" ? process.env.STRIPE_STARTER_YEARLY_PRICE_ID : process.env.STRIPE_STARTER_PRICE_ID;
     }

@@ -2,12 +2,77 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { PricingTable } from "@clerk/nextjs";
 import { motion } from "framer-motion";
 import {
   ArrowRight, CheckCircle, Clock, Mail, Map, Search, Shield, Zap,
-  Star, Building2, Users, TrendingUp, Bell, Globe, BarChart3
+  Star, Building2, Users, TrendingUp, Bell, Globe, BarChart3, Loader2
 } from "lucide-react";
+
+const pricingTiers = [
+  { name: "Starter", price: 49, yearlyPrice: 39, description: "For solo contractors", features: ["1 city territory", "Building permit alerts", "Email notifications", "Basic territory mapping", "30-day free trial"], tier: "starter", popular: false },
+  { name: "Professional", price: 99, yearlyPrice: 79, description: "For growing businesses", features: ["Up to 3 city territories", "Building permits + business licenses", "Instant email alerts", "Advanced territory mapping", "Filing search tool", "Priority support"], tier: "professional", popular: true },
+  { name: "Enterprise", price: 249, yearlyPrice: 199, description: "For multi-location teams", features: ["Unlimited city territories", "All permit types", "Instant alerts + daily digest", "Team dashboard access", "API access", "Dedicated account manager", "Custom integrations"], tier: "enterprise", popular: false }
+];
+
+function PricingSection() {
+  const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
+  const [loadingTier, setLoadingTier] = useState<string | null>(null);
+
+  async function handleSubscribe(tier: string) {
+    setLoadingTier(tier);
+    try {
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier, interval: billingInterval })
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        setLoadingTier(null);
+      }
+    } catch {
+      setLoadingTier(null);
+    }
+  }
+
+  return (
+    <section id="pricing" className="px-4 py-16 lg:px-8 lg:py-24">
+      <div className="mx-auto max-w-5xl">
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
+          <h2 className="text-center text-3xl font-semibold text-stone-950">Simple, transparent pricing</h2>
+          <p className="mx-auto mt-3 max-w-xl text-center text-stone-600">Start free for 30 days. Cancel anytime.</p>
+          <div className="mt-8 flex items-center justify-center gap-3">
+            <button onClick={() => setBillingInterval("monthly")} className={`rounded-lg px-4 py-2 text-sm font-medium transition ${billingInterval === "monthly" ? "bg-teal-700 text-white" : "text-stone-600 hover:text-stone-900"}`}>Monthly</button>
+            <button onClick={() => setBillingInterval("yearly")} className={`rounded-lg px-4 py-2 text-sm font-medium transition ${billingInterval === "yearly" ? "bg-teal-700 text-white" : "text-stone-600 hover:text-stone-900"}`}>Yearly <span className="ml-1 text-xs text-amber-600">Save 20%</span></button>
+          </div>
+        </motion.div>
+        <motion.div className="mt-12 grid gap-6 lg:grid-cols-3" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+          {pricingTiers.map(({ name, price, yearlyPrice, description, features, tier, popular }) => {
+            const displayPrice = billingInterval === "yearly" ? yearlyPrice : price;
+            const isLoading = loadingTier === tier;
+            return (
+              <motion.div key={tier} variants={fadeUp} className={`relative rounded-2xl border p-6 ${popular ? "border-teal-200 bg-white shadow-lg shadow-teal-100/50 ring-1 ring-teal-100" : "border-stone-200 bg-white"}`}>
+                {popular && <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-teal-700 px-4 py-1 text-xs font-medium text-white">Most popular</div>}
+                <div className="text-sm font-medium text-stone-500">{name}</div>
+                <div className="mt-2 flex items-baseline gap-1"><span className="text-4xl font-semibold text-stone-950">${displayPrice}</span><span className="text-stone-500">/month</span></div>
+                {billingInterval === "yearly" && <p className="mt-1 text-xs text-stone-500">${displayPrice * 12}/year</p>}
+                <p className="mt-2 text-sm text-stone-600">{description}</p>
+                <button onClick={() => handleSubscribe(tier)} disabled={isLoading} className={`mt-6 inline-flex w-full items-center justify-center rounded-xl px-6 py-3 text-sm font-medium transition ${popular ? "bg-teal-700 text-white hover:bg-teal-800" : "border border-stone-200 text-stone-700 hover:bg-stone-50"} disabled:opacity-50`}>
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Start free trial"}
+                </button>
+                <ul className="mt-6 space-y-3">
+                  {features.map((f) => (<li key={f} className="flex items-start gap-2.5 text-sm text-stone-600"><CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-teal-600" />{f}</li>))}
+                </ul>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -195,7 +260,7 @@ export default function MarketingPage() {
             {[
               { icon: Clock, title: "Manual checking wastes hours", desc: "You or your staff spend time every morning checking city websites instead of closing deals.", color: "text-red-500 bg-red-50" },
               { icon: TrendingUp, title: "Competitors strike first", desc: "By the time you find a new permit, another contractor has already called the homeowner.", color: "text-amber-600 bg-amber-50" },
-              { icon: Globe, title: "Too many cities to track", desc: "You serve multiple areas but can&apos;t monitor 5 different city permit websites daily.", color: "text-blue-500 bg-blue-50" },
+              { icon: Globe, title: "Too many cities to track", desc: "You serve multiple areas but can't monitor 5 different city permit websites daily.", color: "text-blue-500 bg-blue-50" },
               { icon: BarChart3, title: "Missed revenue", desc: "Every unfollowed permit is a job you could have won. The math adds up fast.", color: "text-purple-500 bg-purple-50" }
             ].map(({ icon: Icon, title, desc, color }) => (
               <motion.div key={title} variants={fadeUp} className="flex gap-4 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
@@ -275,26 +340,8 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* Pricing — Clerk PricingTable */}
-      <section id="pricing" className="px-4 py-16 lg:px-8 lg:py-24">
-        <div className="mx-auto max-w-5xl">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
-            <h2 className="text-center text-3xl font-semibold text-stone-950">Simple, transparent pricing</h2>
-            <p className="mx-auto mt-3 max-w-xl text-center text-stone-600">
-              Start free for 30 days. Cancel anytime.
-            </p>
-          </motion.div>
-          <motion.div
-            className="mt-12"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeUp}
-          >
-            <PricingTable />
-          </motion.div>
-        </div>
-      </section>
+      {/* Pricing — Stripe cards */}
+      <PricingSection />
 
       {/* FAQ */}
       <section className="border-t border-stone-200 bg-white px-4 py-16 lg:px-8 lg:py-24">

@@ -28,7 +28,7 @@ export default function OnboardingPage() {
   const { user } = useUser();
   const { toast } = useToast();
   const [step, setStep] = useState(1);
-  const [market, setMarket] = useState<"austin" | "orlando">("austin");
+  const [market, setMarket] = useState<string>("austin");
   const [serviceArea, setServiceArea] = useState<ServiceArea | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -88,11 +88,28 @@ export default function OnboardingPage() {
       if (drawMode === "circle" && !serviceArea) {
         const defaults: Record<string, [number, number]> = {
           austin: [-97.7431, 30.2672],
-          orlando: [-81.3789, 28.5383]
+          dallas: [-96.7970, 32.7767],
+          fort_worth: [-97.3308, 32.7555],
+          chicago: [-87.6298, 41.8781],
+          nyc: [-74.0060, 40.7128],
+          los_angeles: [-118.2437, 34.0522],
+          san_francisco: [-122.4194, 37.7749],
+          san_diego: [-117.1611, 32.7157],
+          seattle: [-122.3321, 47.6062],
+          boston: [-71.0589, 42.3601],
+          miami: [-80.1918, 25.7617],
+          orlando: [-81.3789, 28.5383],
+          detroit: [-83.0458, 42.3314]
+        };
+        const cityNames: Record<string, string> = {
+          austin: "Austin, TX", dallas: "Dallas, TX", fort_worth: "Fort Worth, TX",
+          chicago: "Chicago, IL", nyc: "New York City, NY", los_angeles: "Los Angeles, CA",
+          san_francisco: "San Francisco, CA", san_diego: "San Diego, CA", seattle: "Seattle, WA",
+          boston: "Boston, MA", miami: "Miami-Dade, FL", orlando: "Orlando, FL", detroit: "Detroit, MI"
         };
         const defaultCenter = defaults[market] || defaults.austin;
         setCircleCenterCoords(defaultCenter);
-        setCircleCenterAddress(market === "orlando" ? "Orlando, FL" : "Austin, TX");
+        setCircleCenterAddress(cityNames[market] || "Austin, TX");
         setServiceArea(createCirclePolygon(defaultCenter, circleRadius));
       }
     }
@@ -137,10 +154,21 @@ export default function OnboardingPage() {
           <Card className="mx-auto max-w-2xl p-6">
             <h1 className="text-2xl font-semibold">Choose your city</h1>
             <p className="mt-2 text-stone-600">Select the market where you operate. We currently monitor permits in these cities.</p>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 max-h-[400px] overflow-y-auto">
               {[
-                { id: "austin" as const, name: "Austin, TX", desc: "5,000+ permits tracked monthly" },
-                { id: "orlando" as const, name: "Orlando, FL", desc: "Active building permit feed" }
+                { id: "austin" as const, name: "Austin, TX" },
+                { id: "dallas" as const, name: "Dallas, TX" },
+                { id: "fort_worth" as const, name: "Fort Worth, TX" },
+                { id: "chicago" as const, name: "Chicago, IL" },
+                { id: "nyc" as const, name: "New York City, NY" },
+                { id: "los_angeles" as const, name: "Los Angeles, CA" },
+                { id: "san_francisco" as const, name: "San Francisco, CA" },
+                { id: "san_diego" as const, name: "San Diego, CA" },
+                { id: "seattle" as const, name: "Seattle, WA" },
+                { id: "boston" as const, name: "Boston, MA" },
+                { id: "miami" as const, name: "Miami-Dade, FL" },
+                { id: "orlando" as const, name: "Orlando, FL" },
+                { id: "detroit" as const, name: "Detroit, MI" }
               ].map((city) => (
                 <button
                   key={city.id}
@@ -159,7 +187,6 @@ export default function OnboardingPage() {
                     <MapPin className={`h-5 w-5 ${market === city.id ? "text-teal-700" : "text-stone-400"}`} />
                     <span className="text-lg font-semibold">{city.name}</span>
                   </div>
-                  <span className="mt-1 text-sm text-stone-500">{city.desc}</span>
                 </button>
               ))}
             </div>

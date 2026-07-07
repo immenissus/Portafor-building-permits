@@ -10,15 +10,21 @@ function SubscriptionGateInner({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
   const [allowed, setAllowed] = useState(false);
 
-  const hasActivePlan = user?.publicMetadata?.plan && user.publicMetadata.plan !== "Free";
+  const plan = user?.publicMetadata?.plan as string | undefined;
+  const status = user?.publicMetadata?.status as string | undefined;
+  const hasActivePlan = plan && plan !== "Free" && status !== "past_due" && status !== "canceled";
   const justCheckedOut = searchParams.get("checkout") === "success";
 
   useEffect(() => {
     if (!isLoaded) return;
 
-    if (hasActivePlan || justCheckedOut) {
+    if (justCheckedOut) {
+      // Just came from Stripe — allow through, webhook will update metadata
+      setAllowed(true);
+    } else if (hasActivePlan) {
       setAllowed(true);
     } else {
+      // No plan or expired — redirect to pricing
       router.replace("/pricing");
     }
   }, [isLoaded, hasActivePlan, justCheckedOut, router]);
