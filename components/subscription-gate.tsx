@@ -1,11 +1,11 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession, useUser } from "@clerk/nextjs";
 
-const POLL_INTERVAL_MS = 3000;
-const MAX_POLL_ATTEMPTS = 10;
+const POLL_INTERVAL_MS = 2000;
+const MAX_POLL_ATTEMPTS = 15;
 
 function SubscriptionGateInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -14,8 +14,8 @@ function SubscriptionGateInner({ children }: { children: React.ReactNode }) {
   const { session } = useSession();
   const [allowed, setAllowed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-  const pollCountRef = useRef(0);
-  const resolvedRef = useRef(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const attemptsRef = useRef(0);
 
   const clerkPlan = user?.publicMetadata?.plan as string | undefined;
   const clerkStatus = user?.publicMetadata?.status as string | undefined;
@@ -29,57 +29,61 @@ function SubscriptionGateInner({ children }: { children: React.ReactNode }) {
     }
   }, [justCheckedOut, session]);
 
-  // Primary source of truth: always query the billing API
-  const checkBillingApi = useCallback(async (): Promise<{ plan: string; hasPlan: boolean }> => {
-    try {
-      const res = await fetch("/api/billing/status");
-      if (!res.ok) return { plan: "Free", hasPlan: false };
-      const data = await res.json();
-      const plan = data.plan as string | undefined;
-      return { plan: plan || "Free", hasPlan: Boolean(plan && plan !== "Free") };
-    } catch {
-      return { plan: "Free", hasPlan: false };
-    }
-  }, []);
-
+  // Main gate logic
   useEffect(() => {
-    if (!isLoaded || resolvedRef.current) return;
+    if (!isLoaded) return;
 
-    // Immediately allow if just returned from checkout
+    // Just returned from Stripe — allow immediately
     if (justCheckedOut) {
-      resolvedRef.current = true;
       setAllowed(true);
       return;
     }
 
-    // If Clerk JWT already shows a plan, trust it
+    // Clerk JWT already has a plan — allow
     if (clerkHasPlan) {
-      resolvedRef.current = true;
       setAllowed(true);
       return;
     }
 
-    // JWT is stale — poll the billing API to check if the webhook completed
-    if (pollCountRef.current < MAX_POLL_ATTEMPTS) {
-      pollCountRef.current += 1;
-      const timer = setTimeout(async () => {
-        const { hasPlan } = await checkBillingApi();
-        if (hasPlan) {
-          resolvedRef.current = true;
-          setAllowed(true);
-          // Refresh so Clerk picks up the new metadata
-          router.refresh();
-        } else if (pollCountRef.current >= MAX_POLL_ATTEMPTS) {
-          // Exhausted polling — redirect to pricing
-          resolvedRef.current = true;
-          router.replace("/pricing");
-        }
-      }, POLL_INTERVAL_MS);
-      return () => clearTimeout(timer);
+    // JWT is stale — start polling the billing API
+    async function checkBilling() {
+      try {
+        const res = await fetch("/api/billing/status");
+        if (!res.ok) return false;
+        const data = await res.json();
+        return Boolean(data.plan && data.plan !== "Free");
+      } catch {
+        return false;
+      }
     }
-  }, [isLoaded, clerkHasPlan, justCheckedOut, router, checkBillingApi]);
 
-  // Mark hydrated
+    // Check immediately (first poll)
+    checkBilling().then((hasPlan) => {
+      if (hasPlan) {
+        setAllowed(true);
+        router.refresh();
+      }
+    });
+
+    // Set up interval polling
+    pollRef.current = setInterval(async () => {
+      attemptsRef.current += 1;
+      const hasPlan = await checkBilling();
+      if (hasPlan) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        setAllowed(true);
+        router.refresh();
+      } else if (attemptsRef.current >= MAX_POLL_ATTEMPTS) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        router.replace("/pricing");
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [isLoaded, clerkHasPlan, justCheckedOut, router]);
+
   useEffect(() => {
     if (isLoaded) setHydrated(true);
   }, [isLoaded]);
