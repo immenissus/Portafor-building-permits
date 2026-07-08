@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { blogPosts } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import crypto from "crypto";
+import { verifyAdminKey } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -50,11 +51,8 @@ export async function GET(request: Request) {
 // POST - Create a post (admin only)
 export async function POST(request: Request) {
   try {
-    const adminKeyHeader = request.headers.get("X-Admin-Key");
-    const expectedKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY || process.env.ADMIN_API_KEY;
-    if (!adminKeyHeader || adminKeyHeader !== expectedKey) {
-      return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
-    }
+    const authError = verifyAdminKey(request);
+    if (authError) return authError;
 
     const body = await request.json();
     const { title, slug, excerpt, content, coverImage, author, tags, published } = body;
@@ -87,11 +85,8 @@ export async function POST(request: Request) {
 // PUT - Update a post (admin only)
 export async function PUT(request: Request) {
   try {
-    const adminKeyHeader = request.headers.get("X-Admin-Key");
-    const expectedKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY || process.env.ADMIN_API_KEY;
-    if (!adminKeyHeader || adminKeyHeader !== expectedKey) {
-      return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
-    }
+    const authError = verifyAdminKey(request);
+    if (authError) return authError;
 
     const body = await request.json();
     const { id, title, slug, excerpt, content, coverImage, author, tags, published } = body;
@@ -124,11 +119,8 @@ export async function PUT(request: Request) {
 // DELETE - Delete a post (admin only)
 export async function DELETE(request: Request) {
   try {
-    const adminKeyHeader = request.headers.get("X-Admin-Key");
-    const expectedKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY || process.env.ADMIN_API_KEY;
-    if (!adminKeyHeader || adminKeyHeader !== expectedKey) {
-      return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
-    }
+    const authError = verifyAdminKey(request);
+    if (authError) return authError;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

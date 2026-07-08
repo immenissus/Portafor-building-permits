@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { db } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { jurisdictions } from "@/lib/db/schema";
+import { verifyAdminKey } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -109,11 +110,8 @@ const SEED_JURISDICTIONS = [
 
 export async function POST(request: Request) {
   try {
-    const adminKeyHeader = request.headers.get("X-Admin-Key");
-    const expectedKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY || process.env.ADMIN_API_KEY;
-    if (!adminKeyHeader || adminKeyHeader !== expectedKey) {
-      return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
-    }
+    const authError = verifyAdminKey(request);
+    if (authError) return authError;
 
     const results: any[] = [];
 

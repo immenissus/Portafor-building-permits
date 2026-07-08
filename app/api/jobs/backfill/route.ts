@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { eq, sql, and } from "drizzle-orm";
 import { jurisdictions, filings, alertsSent, quarantinedFilings } from "@/lib/db/schema";
 import crypto from "crypto";
+import { verifyAdminKey } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,12 +11,8 @@ const BATCH_SIZE = 1000;
 
 export async function POST(request: Request) {
   try {
-    const adminKeyHeader = request.headers.get("X-Admin-Key");
-    const expectedKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY || process.env.ADMIN_API_KEY;
-
-    if (!adminKeyHeader || adminKeyHeader !== expectedKey) {
-      return NextResponse.json({ detail: "Unauthorized - Invalid X-Admin-Key" }, { status: 401 });
-    }
+    const authError = verifyAdminKey(request);
+    if (authError) return authError;
 
     const body = await request.json();
     const { jurisdiction_id, start_date, end_date } = body;

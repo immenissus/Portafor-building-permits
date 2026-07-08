@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { db } from "@/lib/db";
 import { jurisdictions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { verifyAdminKey } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -33,12 +34,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const adminKeyHeader = request.headers.get("X-Admin-Key");
-    const expectedKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY || process.env.ADMIN_API_KEY;
-
-    if (!adminKeyHeader || adminKeyHeader !== expectedKey) {
-      return NextResponse.json({ detail: "Unauthorized - Invalid X-Admin-Key" }, { status: 401 });
-    }
+    const authError = verifyAdminKey(request);
+    if (authError) return authError;
 
     const body = await request.json();
     const { name, socrata_domain, resource_id, app_token, column_field_map } = body;
