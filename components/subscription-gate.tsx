@@ -22,6 +22,7 @@ function SubscriptionGateInner({ children }: { children: React.ReactNode }) {
 
     const clerkPlan = user?.publicMetadata?.plan as string | undefined;
     const clerkStatus = user?.publicMetadata?.status as string | undefined;
+    // Allow active and trialing — block only past_due, canceled, and Free
     const clerkHasPlan = clerkPlan && clerkPlan !== "Free" && clerkStatus !== "past_due" && clerkStatus !== "canceled";
 
     // Just returned from checkout — allow immediately

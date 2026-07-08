@@ -22,7 +22,7 @@ export async function GET() {
     console.error("Clerk metadata retrieval failed, falling back to Stripe:", error);
   }
 
-  // Fallback: Query Stripe directly for active subscriptions
+  // Fallback: Query Stripe directly for active OR trialing subscriptions
   if (!process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json({ plan: "Free", status: "active" });
   }
@@ -38,11 +38,21 @@ export async function GET() {
       return NextResponse.json({ plan: "Free", status: "active" });
     }
 
-    const subscriptions = await stripe.subscriptions.list({
+    // Check for active subscriptions first, then trialing
+    let subscriptions = await stripe.subscriptions.list({
       customer: customers.data[0].id,
       status: "active",
       limit: 1
     });
+
+    // Also check trialing subscriptions (trial_period_days creates "trialing" status)
+    if (subscriptions.data.length === 0) {
+      subscriptions = await stripe.subscriptions.list({
+        customer: customers.data[0].id,
+        status: "trialing",
+        limit: 1
+      });
+    }
 
     if (subscriptions.data && subscriptions.data.length > 0) {
       const sub = subscriptions.data[0];
@@ -57,7 +67,10 @@ export async function GET() {
       }
       if (interval === "year") planName += " Yearly";
 
-      return NextResponse.json({ plan: planName, status: sub.status });
+      // Map Stripe status to our status
+      const mappedStatus = sub.status === "trialing" ? "active" : sub.status;
+
+      return NextResponse.json({ plan: planName, status: mappedStatus });
     }
 
     return NextResponse.json({ plan: "Free", status: "active" });

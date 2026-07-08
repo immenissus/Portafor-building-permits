@@ -15,6 +15,18 @@ const clerk = createClerkClient({
 
 export const dynamic = "force-dynamic";
 
+// Helper: Resolve plan name from price ID
+function resolvePlanName(priceId: string | undefined, interval: string | undefined): string {
+  let planName = "Starter";
+  if (priceId === process.env.STRIPE_PRO_PRICE_ID || priceId === process.env.STRIPE_PRO_YEARLY_PRICE_ID) {
+    planName = "Professional";
+  } else if (priceId === process.env.STRIPE_ENTERPRISE_PRICE_ID || priceId === process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID) {
+    planName = "Enterprise";
+  }
+  if (interval === "year") planName += " Yearly";
+  return planName;
+}
+
 export async function POST(request: Request) {
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
@@ -37,7 +49,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    // 1. Webhook Event Deduplication (Check if already processed)
+    // 1. Webhook Event Deduplication
     const [existingEvent] = await db
       .select({ id: stripeWebhookEvents.id, status: stripeWebhookEvents.status })
       .from(stripeWebhookEvents)
@@ -49,7 +61,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true, deduplicated: true });
     }
 
-    // 2. Extract Clerk User ID depending on Stripe Event Type
+    // 2. Extract Clerk User ID
     let clerkUserId: string | null = null;
     const stripeObject = event.data.object as any;
 
@@ -57,6 +69,7 @@ export async function POST(request: Request) {
       const session = event.data.object as Stripe.Checkout.Session;
       clerkUserId = session.client_reference_id ?? session.metadata?.clerk_user_id ?? null;
     } else {
+      // For subscription events, get user from customer metadata
       const customerId = stripeObject.customer as string;
       if (customerId) {
         try {
@@ -70,7 +83,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 3. Log event as 'pending' (upsert/insert)
+    // 3. Log event as 'pending'
     if (!existingEvent) {
       await db.insert(stripeWebhookEvents).values({
         id: event.id,
@@ -81,7 +94,7 @@ export async function POST(request: Request) {
       });
     }
 
-    // 4. Process Stripe Event cases
+    // 4. Process Event
     let processedSuccessfully = false;
 
     switch (event.type) {
@@ -92,13 +105,34 @@ export async function POST(request: Request) {
           const interval = session.metadata?.interval || "monthly";
           const planName = tier.charAt(0).toUpperCase() + tier.slice(1) + (interval === "yearly" ? " Yearly" : "");
           await clerk.users.updateUser(clerkUserId, {
-            publicMetadata: {
-              plan: planName,
-              status: "active"
-            }
+            publicMetadata: { plan: planName, status: "active" }
           });
           processedSuccessfully = true;
           console.log(`Provisioned ${planName} for user ${clerkUserId}`);
+        }
+        break;
+      }
+
+      // Handle subscription lifecycle events (trials, renewals, etc.)
+      case "customer.subscription.created":
+      case "customer.subscription.updated": {
+        if (clerkUserId) {
+          const sub = event.data.object as Stripe.Subscription;
+          const priceId = sub.items.data[0]?.price.id;
+          const interval = sub.items.data[0]?.price.recurring?.interval;
+          const planName = resolvePlanName(priceId, interval);
+
+          // Map Stripe status to our status
+          let status = "active";
+          if (sub.status === "trialing") status = "active"; // Trials are active
+          else if (sub.status === "past_due") status = "past_due";
+          else if (sub.status === "canceled" || sub.status === "unpaid") status = "canceled";
+
+          await clerk.users.updateUser(clerkUserId, {
+            publicMetadata: { plan: planName, status }
+          });
+          processedSuccessfully = true;
+          console.log(`Subscription ${event.type}: ${planName} (${sub.status}) for user ${clerkUserId}`);
         }
         break;
       }
@@ -112,16 +146,12 @@ export async function POST(request: Request) {
             try {
               const sub = await stripe.subscriptions.retrieve(subId);
               const priceId = sub.items.data[0]?.price.id;
-              if (priceId === process.env.STRIPE_PRO_PRICE_ID || priceId === process.env.STRIPE_PRO_YEARLY_PRICE_ID) planName = "Professional";
-              else if (priceId === process.env.STRIPE_ENTERPRISE_PRICE_ID) planName = "Enterprise";
-              if (sub.items.data[0]?.price.recurring?.interval === "year") planName += " Yearly";
+              const interval = sub.items.data[0]?.price.recurring?.interval;
+              planName = resolvePlanName(priceId, interval);
             } catch {}
           }
           await clerk.users.updateUser(clerkUserId, {
-            publicMetadata: {
-              plan: planName,
-              status: "active"
-            }
+            publicMetadata: { plan: planName, status: "active" }
           });
           processedSuccessfully = true;
           console.log(`Renewed ${planName} for user ${clerkUserId}`);
@@ -132,9 +162,7 @@ export async function POST(request: Request) {
       case "invoice.payment_failed": {
         if (clerkUserId) {
           await clerk.users.updateUser(clerkUserId, {
-            publicMetadata: {
-              status: "past_due"
-            }
+            publicMetadata: { status: "past_due" }
           });
           processedSuccessfully = true;
           console.warn(`Payment failed, status set to past_due for user ${clerkUserId}`);
@@ -145,10 +173,7 @@ export async function POST(request: Request) {
       case "customer.subscription.deleted": {
         if (clerkUserId) {
           await clerk.users.updateUser(clerkUserId, {
-            publicMetadata: {
-              plan: "Free",
-              status: "active"
-            }
+            publicMetadata: { plan: "Free", status: "active" }
           });
           processedSuccessfully = true;
           console.log(`Subscription deleted, user ${clerkUserId} downgraded to Free`);
@@ -158,45 +183,33 @@ export async function POST(request: Request) {
 
       default:
         console.log(`Unhandled event type: ${event.type}`);
-        processedSuccessfully = true; // No action needed, count as processed
+        processedSuccessfully = true;
     }
 
-    // 5. Update Webhook Log to processed / failed
+    // 5. Update Webhook Log
     if (processedSuccessfully) {
       await db
         .update(stripeWebhookEvents)
-        .set({
-          status: "processed",
-          processedAt: new Date()
-        })
+        .set({ status: "processed", processedAt: new Date() })
         .where(eq(stripeWebhookEvents.id, event.id));
     } else {
       await db
         .update(stripeWebhookEvents)
-        .set({
-          status: "failed",
-          errorLog: "Clerk User ID was missing or unresolved"
-        })
+        .set({ status: "failed", errorLog: "Clerk User ID was missing or unresolved" })
         .where(eq(stripeWebhookEvents.id, event.id));
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error(`Error processing webhook event ${event.type}:`, error);
-
-    // Save failure trace to database
     try {
       await db
         .update(stripeWebhookEvents)
-        .set({
-          status: "failed",
-          errorLog: error instanceof Error ? error.stack || error.message : "Webhook processing failure"
-        })
+        .set({ status: "failed", errorLog: error instanceof Error ? error.stack || error.message : "Webhook processing failure" })
         .where(eq(stripeWebhookEvents.id, event.id));
     } catch (logErr) {
       console.error("Failed to write webhook failure to db:", logErr);
     }
-
     return NextResponse.json({ error: "Failed to process event" }, { status: 500 });
   }
 }
