@@ -197,7 +197,7 @@ export async function GET(request: Request) {
               )
           `);
 
-          // 5. Send alerts & Log AlertSent record
+          // 5. Log AlertSent record (digest email is sent separately by /api/jobs/digest)
           for (const sub of matchedSubscribers) {
             await db.insert(alertsSent).values({
               id: crypto.randomUUID(),
@@ -207,34 +207,6 @@ export async function GET(request: Request) {
 
             jurMatchedAlerts++;
             report.totalMatchedAlerts++;
-
-            // Email alert dispatch (Uses Resend or falls back to console logging in development)
-            try {
-              const filingLabel = filingType.replace("_", " ").toUpperCase();
-              const subject = `[RoofLead Alert] New ${filingLabel} in your service area!`;
-              const textBody = `Hello ${sub.business_name},\n\nWe found a new ${filingLabel} in your area:\n- Address: ${addressRaw}\n- Date: ${filedAtStr}\n\nBest,\nRoofLead Team`;
-
-              if (process.env.RESEND_API_KEY) {
-                const senderEmail = process.env.SENDER_EMAIL || "onboarding@resend.dev";
-                await fetch("https://api.resend.com/emails", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${process.env.RESEND_API_KEY}`
-                  },
-                  body: JSON.stringify({
-                    from: senderEmail,
-                    to: sub.email,
-                    subject,
-                    text: textBody
-                  })
-                });
-              } else {
-                console.log(`[Email Mock Dispatch] Sent to: ${sub.email} | Subject: ${subject}`);
-              }
-            } catch (emailErr) {
-              console.error(`Failed to send email alert to ${sub.email}:`, emailErr);
-            }
           }
 
           // Advance watermark to the latest processed record

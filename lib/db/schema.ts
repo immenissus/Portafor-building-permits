@@ -75,7 +75,8 @@ export const alertsSent = pgTable("alerts_sent", {
   id: varchar("id", { length: 255 }).primaryKey(),
   subscriberId: varchar("subscriber_id", { length: 255 }).references(() => subscribers.id).notNull(),
   filingId: varchar("filing_id", { length: 255 }).references(() => filings.id).notNull(),
-  dispatchedAt: timestamp("dispatched_at").defaultNow().notNull()
+  dispatchedAt: timestamp("dispatched_at").defaultNow().notNull(),
+  digested: boolean("digested").default(false).notNull()
 });
 
 // STRIPE WEBHOOK LOGGING & RETRY QUEUE

@@ -1,80 +1,105 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sql } from "drizzle-orm";
+import { sql, eq, and } from "drizzle-orm";
+import { alertsSent, subscribers, filings, jurisdictions } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
-// Daily digest: collects all new permits from the last 24h and sends ONE email per subscriber
+// Daily digest: sends ONE email per subscriber with all undelivered permits from today
 export async function GET() {
   try {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    // Start of today (UTC)
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const todayStr = todayStart.toISOString();
 
-    // Find all active subscribers with their territory and recent filings
-    const subscribers = await db.execute(sql`
-      SELECT
+    // Find all active subscribers with undigested alerts
+    const subscribersWithAlerts = await db.execute(sql`
+      SELECT DISTINCT
         s.id,
         s.email,
         s.business_name,
-        s.filing_type_filters,
-        ST_AsGeoJSON(s.service_area) as service_area
+        s.market
       FROM subscribers s
-      WHERE s.status = 'active' AND s.email IS NOT NULL
+      INNER JOIN alerts_sent a ON a.subscriber_id = s.id
+      WHERE s.status = 'active'
+        AND s.email IS NOT NULL
+        AND a.digested = false
     `);
 
     let totalEmailsSent = 0;
     const report: any[] = [];
 
-    for (const sub of subscribers) {
+    for (const sub of subscribersWithAlerts) {
       const subscriberId = sub.id as string;
       const email = sub.email as string;
       const businessName = sub.business_name as string;
-      const filingFilters = sub.filing_type_filters as string[];
-      const serviceArea = sub.service_area as string;
+      const market = sub.market as string;
 
-      if (!email || !serviceArea) continue;
+      if (!email) continue;
 
-      // Find permits inside this subscriber's territory from last 24h
+      // Get all undigested permits for this subscriber, with jurisdiction name and filing details
       const permits = await db.execute(sql`
         SELECT
-          f.id,
+          f.external_id,
           f.filing_type,
           f.address_raw,
           f.filed_at,
-          ST_X(f.geom::geometry) as lng,
-          ST_Y(f.geom::geometry) as lat
-        FROM filings f
-        WHERE ST_Contains(ST_GeomFromGeoJSON(${serviceArea}), f.geom)
-          AND f.filed_at >= ${since}
-          AND f.filing_type = ANY(${filingFilters})
+          j.name as jurisdiction_name
+        FROM alerts_sent a
+        INNER JOIN filings f ON a.filing_id = f.id
+        INNER JOIN jurisdictions j ON f.jurisdiction_id = j.id
+        WHERE a.subscriber_id = ${subscriberId}
+          AND a.digested = false
         ORDER BY f.filed_at DESC
-        LIMIT 50
       `);
 
       if (permits.length === 0) continue;
 
-      // Build digest email
-      const permitRows = permits.map((p: any) => `
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 8px 12px; font-weight: 500;">${p.filing_type === "building_permit" ? "Building Permit" : "Business License"}</td>
-          <td style="padding: 8px 12px;">${p.address_raw}</td>
-          <td style="padding: 8px 12px; color: #6b7280;">${new Date(p.filed_at).toLocaleDateString()}</td>
-        </tr>
-      `).join("");
+      // Build the city list from the permits
+      const cities = Array.from(new Set(permits.map((p: any) => p.jurisdiction_name as string)));
+
+      // Build digest email HTML
+      const permitRows = permits.map((p: any) => {
+        const permitNumber = p.external_id || "N/A";
+        const address = p.address_raw;
+        const type = p.filing_type === "building_permit" ? "Building Permit" : "Business License";
+        const issuedDate = new Date(p.filed_at).toLocaleDateString("en-US", {
+          year: "numeric", month: "long", day: "numeric"
+        });
+        const city = p.jurisdiction_name;
+
+        return `
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 10px 12px; font-weight: 500; font-size: 13px;">${permitNumber}</td>
+            <td style="padding: 10px 12px; font-size: 13px;">${address}</td>
+            <td style="padding: 10px 12px; font-size: 13px;">${city}</td>
+            <td style="padding: 10px 12px; font-size: 13px;">${type}</td>
+            <td style="padding: 10px 12px; color: #6b7280; font-size: 13px;">${issuedDate}</td>
+          </tr>`;
+      }).join("");
+
+      const todayFormatted = new Date().toLocaleDateString("en-US", {
+        weekday: "long", year: "numeric", month: "long", day: "numeric"
+      });
 
       const htmlBody = `
       <html>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 700px; margin: 0 auto; padding: 20px;">
           <div style="border-bottom: 2px solid #0d9488; padding-bottom: 10px; margin-bottom: 20px;">
             <h2 style="color: #0f766e; margin: 0;">Portafor Daily Digest</h2>
+            <p style="color: #6b7280; margin: 4px 0 0 0; font-size: 14px;">${todayFormatted}</p>
           </div>
           <p>Hello <strong>${businessName}</strong>,</p>
-          <p>Here are the <strong>${permits.length} new permit${permits.length > 1 ? "s" : ""}</strong> filed in your territory in the last 24 hours:</p>
+          <p>Here are the <strong>${permits.length} new permit${permits.length > 1 ? "s" : ""}</strong> filed in your territory${cities.length > 0 ? ` (${cities.join(", ")})` : ""}:</p>
           <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
             <thead>
               <tr style="background-color: #f0fdfa; text-align: left;">
-                <th style="padding: 8px 12px; font-weight: 600;">Type</th>
-                <th style="padding: 8px 12px; font-weight: 600;">Address</th>
-                <th style="padding: 8px 12px; font-weight: 600;">Date</th>
+                <th style="padding: 8px 12px; font-weight: 600; font-size: 13px;">Permit #</th>
+                <th style="padding: 8px 12px; font-weight: 600; font-size: 13px;">Address</th>
+                <th style="padding: 8px 12px; font-weight: 600; font-size: 13px;">City</th>
+                <th style="padding: 8px 12px; font-weight: 600; font-size: 13px;">Type</th>
+                <th style="padding: 8px 12px; font-weight: 600; font-size: 13px;">Issued</th>
               </tr>
             </thead>
             <tbody>
@@ -91,13 +116,28 @@ export async function GET() {
         </body>
       </html>`;
 
-      const textBody = `Portafor Daily Digest\n\nHello ${businessName},\n\n${permits.length} new permit(s) in your territory:\n\n${permits.map((p: any) => `- ${p.filing_type}: ${p.address_raw} (${new Date(p.filed_at).toLocaleDateString()})`).join("\n")}\n\nView in dashboard: https://www.portafor.info/dashboard`;
+      const textBody = [
+        `Portafor Daily Digest — ${todayFormatted}`,
+        ``,
+        `Hello ${businessName},`,
+        ``,
+        `${permits.length} new permit(s) filed in your territory:`,
+        ``,
+        ...permits.map((p: any) => {
+          const permitNumber = p.external_id || "N/A";
+          const type = p.filing_type === "building_permit" ? "Building Permit" : "Business License";
+          const issuedDate = new Date(p.filed_at).toLocaleDateString();
+          return `- [${permitNumber}] ${p.address_raw} (${p.jurisdiction_name}) — ${type} — Issued: ${issuedDate}`;
+        }),
+        ``,
+        `View in dashboard: https://www.portafor.info/dashboard`
+      ].join("\n");
 
-      // Send digest email
+      // Send digest email via Resend
       try {
         if (process.env.RESEND_API_KEY) {
           const senderEmail = process.env.SENDER_EMAIL || "digest@portafor.info";
-          await fetch("https://api.resend.com/emails", {
+          const emailResponse = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -111,9 +151,25 @@ export async function GET() {
               text: textBody
             })
           });
+
+          if (!emailResponse.ok) {
+            const errText = await emailResponse.text();
+            console.error(`Resend error for ${email}:`, errText);
+            report.push({ subscriber: businessName, permits: permits.length, status: "failed", error: errText });
+            continue;
+          }
         } else {
           console.log(`[Digest Mock] To: ${email} | ${permits.length} permits`);
         }
+
+        // Mark alerts as digested
+        await db.execute(sql`
+          UPDATE alerts_sent
+          SET digested = true
+          WHERE subscriber_id = ${subscriberId}
+            AND digested = false
+        `);
+
         totalEmailsSent++;
         report.push({ subscriber: businessName, permits: permits.length, status: "sent" });
       } catch (emailErr) {
@@ -124,7 +180,7 @@ export async function GET() {
 
     return NextResponse.json({
       timestamp: new Date().toISOString(),
-      subscribersProcessed: subscribers.length,
+      subscribersProcessed: subscribersWithAlerts.length,
       emailsSent: totalEmailsSent,
       details: report
     });
