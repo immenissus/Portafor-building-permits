@@ -89,23 +89,15 @@ export default function OnboardingPage() {
         const defaults: Record<string, [number, number]> = {
           austin: [-97.7431, 30.2672],
           dallas: [-96.7970, 32.7767],
-          fort_worth: [-97.3308, 32.7555],
+          collin_county: [-96.5590, 33.1972],
           chicago: [-87.6298, 41.8781],
           nyc: [-74.0060, 40.7128],
-          los_angeles: [-118.2437, 34.0522],
-          san_francisco: [-122.4194, 37.7749],
-          san_diego: [-117.1611, 32.7157],
           seattle: [-122.3321, 47.6062],
-          boston: [-71.0589, 42.3601],
-          miami: [-80.1918, 25.7617],
           orlando: [-81.3789, 28.5383],
-          detroit: [-83.0458, 42.3314]
         };
         const cityNames: Record<string, string> = {
-          austin: "Austin, TX", dallas: "Dallas, TX", fort_worth: "Fort Worth, TX",
-          chicago: "Chicago, IL", nyc: "New York City, NY", los_angeles: "Los Angeles, CA",
-          san_francisco: "San Francisco, CA", san_diego: "San Diego, CA", seattle: "Seattle, WA",
-          boston: "Boston, MA", miami: "Miami-Dade, FL", orlando: "Orlando, FL", detroit: "Detroit, MI"
+          austin: "Austin, TX", dallas: "Dallas, TX", collin_county: "Collin County, TX",
+          chicago: "Chicago, IL", nyc: "New York City, NY", seattle: "Seattle, WA", orlando: "Orlando, FL"
         };
         const defaultCenter = defaults[market] || defaults.austin;
         setCircleCenterCoords(defaultCenter);
@@ -158,17 +150,11 @@ export default function OnboardingPage() {
               {[
                 { id: "austin" as const, name: "Austin, TX" },
                 { id: "dallas" as const, name: "Dallas, TX" },
-                { id: "fort_worth" as const, name: "Fort Worth, TX" },
+                { id: "collin_county" as const, name: "Collin County, TX" },
                 { id: "chicago" as const, name: "Chicago, IL" },
                 { id: "nyc" as const, name: "New York City, NY" },
-                { id: "los_angeles" as const, name: "Los Angeles, CA" },
-                { id: "san_francisco" as const, name: "San Francisco, CA" },
-                { id: "san_diego" as const, name: "San Diego, CA" },
                 { id: "seattle" as const, name: "Seattle, WA" },
-                { id: "boston" as const, name: "Boston, MA" },
-                { id: "miami" as const, name: "Miami-Dade, FL" },
                 { id: "orlando" as const, name: "Orlando, FL" },
-                { id: "detroit" as const, name: "Detroit, MI" }
               ].map((city) => (
                 <button
                   key={city.id}

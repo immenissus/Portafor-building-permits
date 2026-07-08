@@ -16,13 +16,6 @@ const cities: Record<string, {
     highlights: ["Travis County permit data", "Same-day alerts for new filings", "Covering Austin metro area"],
     permitStats: "Austin issues thousands of building permits annually across residential and commercial projects.",
   },
-  orlando: {
-    name: "Orlando",
-    state: "Florida",
-    description: "Get real-time building permit alerts in Orlando, FL. Portafor monitors Orange County permit data for new roofing, HVAC, and solar permits in your territory.",
-    highlights: ["Orange County permit feeds", "Instant email notifications", "Central Florida coverage"],
-    permitStats: "Orlando's growth drives consistent permit activity across residential and commercial construction.",
-  },
   dallas: {
     name: "Dallas",
     state: "Texas",
@@ -30,12 +23,12 @@ const cities: Record<string, {
     highlights: ["Dallas open data integration", "Automated territory monitoring", "DFW metro coverage"],
     permitStats: "Dallas is one of the fastest-growing cities in Texas with active permit issuance.",
   },
-  "fort-worth": {
-    name: "Fort Worth",
+  "collin-county": {
+    name: "Collin County",
     state: "Texas",
-    description: "Get real-time building permit alerts in Fort Worth, TX. Portafor monitors Fort Worth permit data for new roofing, HVAC, and solar permits.",
-    highlights: ["Fort Worth data feeds", "Tarrant County coverage", "Instant alerts"],
-    permitStats: "Fort Worth's construction boom means consistent permit activity.",
+    description: "Get real-time building permit alerts in Collin County, TX. Portafor monitors Texas state data for new roofing, HVAC, and solar permits across Collin County.",
+    highlights: ["Texas state permit data", "County-wide coverage", "Suburban and rural permits"],
+    permitStats: "Collin County's rapid growth drives consistent permit activity.",
   },
   chicago: {
     name: "Chicago",
@@ -51,27 +44,6 @@ const cities: Record<string, {
     highlights: ["NYC DOB data feeds", "All five boroughs", "Residential and commercial"],
     permitStats: "NYC's Department of Buildings processes tens of thousands of permits annually.",
   },
-  "los-angeles": {
-    name: "Los Angeles",
-    state: "California",
-    description: "Get real-time building permit alerts in Los Angeles, CA. Portafor monitors LA city data for new roofing, HVAC, and solar permits.",
-    highlights: ["LA city permit feeds", "LA County coverage", "Diverse permit types"],
-    permitStats: "Los Angeles has one of the highest volumes of building permits in the nation.",
-  },
-  "san-francisco": {
-    name: "San Francisco",
-    state: "California",
-    description: "Get real-time building permit alerts in San Francisco, CA. Portafor monitors SF data for new roofing, HVAC, and solar permits.",
-    highlights: ["SF data integration", "Bay Area coverage", "Residential and commercial"],
-    permitStats: "San Francisco's strict building codes drive detailed permit tracking.",
-  },
-  "san-diego": {
-    name: "San Diego",
-    state: "California",
-    description: "Get real-time building permit alerts in San Diego, CA. Portafor monitors San Diego data for new roofing, HVAC, and solar permits.",
-    highlights: ["San Diego data feeds", "County-wide coverage", "Coastal and inland permits"],
-    permitStats: "San Diego's growth market generates consistent permit activity.",
-  },
   seattle: {
     name: "Seattle",
     state: "Washington",
@@ -79,26 +51,12 @@ const cities: Record<string, {
     highlights: ["Seattle data portal", "King County coverage", "Urban development permits"],
     permitStats: "Seattle's rapid development drives high permit volumes.",
   },
-  boston: {
-    name: "Boston",
-    state: "Massachusetts",
-    description: "Get real-time building permit alerts in Boston, MA. Portafor monitors Boston data for new roofing, HVAC, and solar permits.",
-    highlights: ["Boston open data", "Suffolk County coverage", "Historic and new construction"],
-    permitStats: "Boston's mix of historic renovation and new construction creates diverse permit activity.",
-  },
-  miami: {
-    name: "Miami",
+  orlando: {
+    name: "Orlando",
     state: "Florida",
-    description: "Get real-time building permit alerts in Miami-Dade County, FL. Portafor monitors Miami data for new roofing, HVAC, and solar permits.",
-    highlights: ["Miami-Dade data feeds", "South Florida coverage", "Hurricane-related permits"],
-    permitStats: "Miami-Dade is one of the largest permit-issuing counties in Florida.",
-  },
-  detroit: {
-    name: "Detroit",
-    state: "Michigan",
-    description: "Get real-time building permit alerts in Detroit, MI. Portafor monitors Detroit data for new roofing, HVAC, and solar permits.",
-    highlights: ["Detroit data portal", "Wayne County coverage", "Revitalization permits"],
-    permitStats: "Detroit's revitalization is driving new permit activity.",
+    description: "Get real-time building permit alerts in Orlando, FL. Portafor monitors Orange County permit data for new roofing, HVAC, and solar permits in your territory.",
+    highlights: ["Orange County permit feeds", "Instant email notifications", "Central Florida coverage"],
+    permitStats: "Orlando's growth drives consistent permit activity across residential and commercial construction.",
   },
 };
 
@@ -118,21 +76,9 @@ export async function generateMetadata({ params }: { params: Promise<{ city: str
   return {
     title,
     description,
-    openGraph: {
-      title,
-      description,
-      url,
-      siteName: "Portafor",
-      type: "website",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-    },
-    alternates: {
-      canonical: url,
-    },
+    openGraph: { title, description, url, siteName: "Portafor", type: "website" },
+    twitter: { card: "summary_large_image", title, description },
+    alternates: { canonical: url },
   };
 }
 
@@ -146,28 +92,14 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
     "@type": "Service",
     name: `Building Permit Leads in ${city.name}, ${city.state}`,
     description: city.description,
-    provider: {
-      "@type": "Organization",
-      name: "Portafor",
-      url: "https://portafor.info",
-    },
-    areaServed: {
-      "@type": "City",
-      name: city.name,
-      containedInPlace: {
-        "@type": "State",
-        name: city.state,
-      },
-    },
+    provider: { "@type": "Organization", name: "Portafor", url: "https://portafor.info" },
+    areaServed: { "@type": "City", name: city.name, containedInPlace: { "@type": "State", name: city.state } },
     serviceType: "Building Permit Alert Service",
   };
 
   return (
     <main className="min-h-screen bg-[#FAFAF8]">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(citySchema) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(citySchema) }} />
 
       <nav className="border-b border-stone-200/60 bg-[#FAFAF8]/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-8">
@@ -175,9 +107,7 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
           <div className="flex items-center gap-3">
             <Link href="/blog" className="text-sm font-medium text-stone-600 hover:text-stone-900 transition">Blog</Link>
             <Link href="/sign-in" className="text-sm font-medium text-stone-600 hover:text-stone-900 transition">Log in</Link>
-            <Link href="/sign-up" className="rounded-xl bg-teal-700 px-5 py-2 text-sm font-medium text-white transition hover:bg-teal-800">
-              Start free trial
-            </Link>
+            <Link href="/sign-up" className="rounded-xl bg-teal-700 px-5 py-2 text-sm font-medium text-white transition hover:bg-teal-800">Start free trial</Link>
           </div>
         </div>
       </nav>
@@ -185,23 +115,13 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
       <section className="px-4 pt-16 pb-20 lg:px-8 lg:pt-24 lg:pb-28">
         <div className="mx-auto max-w-4xl">
           <p className="text-sm font-medium text-teal-700 mb-3">Now monitoring {city.name}</p>
-          <h1 className="text-4xl font-semibold tracking-tight text-stone-950 sm:text-5xl">
-            {city.name} Building Permit Leads
-          </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-stone-600">
-            {city.description}
-          </p>
+          <h1 className="text-4xl font-semibold tracking-tight text-stone-950 sm:text-5xl">{city.name} Building Permit Leads</h1>
+          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-stone-600">{city.description}</p>
           <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-            <Link
-              href="/sign-up"
-              className="inline-flex items-center justify-center rounded-xl bg-teal-700 px-8 py-4 text-base font-medium text-white shadow-lg shadow-teal-700/25 transition hover:bg-teal-800"
-            >
+            <Link href="/sign-up" className="inline-flex items-center justify-center rounded-xl bg-teal-700 px-8 py-4 text-base font-medium text-white shadow-lg shadow-teal-700/25 transition hover:bg-teal-800">
               Start getting {city.name} leads
             </Link>
-            <Link
-              href="/pricing"
-              className="inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white px-8 py-4 text-base font-medium text-stone-700 transition hover:border-stone-300 hover:bg-stone-50"
-            >
+            <Link href="/pricing" className="inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white px-8 py-4 text-base font-medium text-stone-700 transition hover:border-stone-300 hover:bg-stone-50">
               View pricing
             </Link>
           </div>
@@ -213,10 +133,8 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
           <h2 className="text-2xl font-semibold text-stone-950">How Portafor works in {city.name}</h2>
           <p className="mt-3 text-stone-600">{city.permitStats}</p>
           <div className="mt-8 grid gap-6 sm:grid-cols-3">
-            {city.highlights.map((highlight) => (
-              <div key={highlight} className="rounded-2xl border border-stone-200 bg-stone-50 p-6">
-                <p className="font-medium text-stone-900">{highlight}</p>
-              </div>
+            {city.highlights.map((h) => (
+              <div key={h} className="rounded-2xl border border-stone-200 bg-stone-50 p-6"><p className="font-medium text-stone-900">{h}</p></div>
             ))}
           </div>
         </div>
@@ -226,50 +144,24 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
         <div className="mx-auto max-w-4xl">
           <h2 className="text-2xl font-semibold text-stone-950">What is a building permit lead?</h2>
           <div className="mt-4 space-y-4 text-stone-600 leading-relaxed">
-            <p>
-              A building permit is filed with the city when a homeowner or business plans construction work —
-              a new roof, HVAC installation, solar panels, or renovations. These permits are public record and
-              represent potential customers who need your services.
-            </p>
-            <p>
-              Portafor monitors the {city.name} permit data feed and alerts you the moment a new permit matching
-              your service type is filed in your territory. Instead of manually checking city websites, you get
-              an email with the permit details, address, and filing date.
-            </p>
-            <p>
-              This means you can reach out to homeowners and businesses before your competitors even know the
-              permit exists — giving you a first-mover advantage on every lead.
-            </p>
+            <p>A building permit is filed with the city when a homeowner or business plans construction work — a new roof, HVAC installation, solar panels, or renovations. These permits are public record and represent potential customers who need your services.</p>
+            <p>Portafor monitors the {city.name} permit data feed and alerts you the moment a new permit matching your service type is filed in your territory. Instead of manually checking city websites, you get an email with the permit details, address, and filing date.</p>
+            <p>This means you can reach out to homeowners and businesses before your competitors even know the permit exists — giving you a first-mover advantage on every lead.</p>
           </div>
         </div>
       </section>
 
       <section className="border-t border-stone-200 bg-white px-4 py-16 lg:px-8">
         <div className="mx-auto max-w-4xl">
-          <h2 className="text-2xl font-semibold text-stone-950">Frequently asked questions about {city.name} permits</h2>
+          <h2 className="text-2xl font-semibold text-stone-950">Frequently asked questions</h2>
           <div className="mt-8 divide-y divide-stone-200">
             {[
-              {
-                q: `How quickly does Portafor alert me about new ${city.name} permits?`,
-                a: `We poll the ${city.name} permit data feed every hour. Most alerts arrive within 60 minutes of a permit being posted publicly.`,
-              },
-              {
-                q: `What types of permits does Portafor track in ${city.name}?`,
-                a: "Building permits and business licenses. We monitor new construction, renovations, roofing, HVAC, solar, and more.",
-              },
-              {
-                q: `Can I monitor multiple areas in ${city.name}?`,
-                a: "Yes! Draw separate territories on the map. Each territory gets its own independent monitoring and alerts.",
-              },
-              {
-                q: "Is there a free trial?",
-                a: "Yes — every plan starts with a 30-day free trial. Cancel anytime, no contracts.",
-              },
+              { q: `How quickly does Portafor alert me about new ${city.name} permits?`, a: `We poll the ${city.name} permit data feed every hour. Most alerts arrive within 60 minutes of a permit being posted publicly.` },
+              { q: `What types of permits does Portafor track in ${city.name}?`, a: "Building permits and business licenses. We monitor new construction, renovations, roofing, HVAC, solar, and more." },
+              { q: `Can I monitor multiple areas in ${city.name}?`, a: "Yes! Draw separate territories on the map. Each territory gets its own independent monitoring and alerts." },
+              { q: "Is there a free trial?", a: "Yes — every plan starts with a 30-day free trial. Cancel anytime, no contracts." },
             ].map(({ q, a }) => (
-              <div key={q} className="py-5">
-                <h3 className="text-base font-medium text-stone-900">{q}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-stone-600">{a}</p>
-              </div>
+              <div key={q} className="py-5"><h3 className="text-base font-medium text-stone-900">{q}</h3><p className="mt-2 text-sm leading-relaxed text-stone-600">{a}</p></div>
             ))}
           </div>
         </div>
@@ -277,16 +169,9 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
 
       <section className="relative bg-teal-700 px-4 py-20 text-center lg:px-8 lg:py-24">
         <div className="mx-auto max-w-2xl">
-          <h2 className="text-3xl font-semibold text-white sm:text-4xl">
-            Start getting {city.name} permit leads today
-          </h2>
+          <h2 className="text-3xl font-semibold text-white sm:text-4xl">Start getting {city.name} permit leads today</h2>
           <p className="mt-4 text-lg text-teal-100">Free for 30 days. Cancel anytime.</p>
-          <Link
-            href="/sign-up"
-            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-medium text-teal-700 shadow-lg transition hover:bg-stone-50"
-          >
-            Get started free
-          </Link>
+          <Link href="/sign-up" className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-medium text-teal-700 shadow-lg transition hover:bg-stone-50">Get started free</Link>
         </div>
       </section>
 
@@ -297,7 +182,6 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
             <Link href="/blog" className="hover:text-stone-700 transition">Blog</Link>
             <Link href="/pricing" className="hover:text-stone-700 transition">Pricing</Link>
             <Link href="/privacy" className="hover:text-stone-700 transition">Privacy</Link>
-            <Link href="/terms" className="hover:text-stone-700 transition">Terms</Link>
           </div>
         </div>
       </footer>

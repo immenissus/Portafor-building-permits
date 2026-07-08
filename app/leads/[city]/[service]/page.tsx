@@ -31,18 +31,12 @@ const services: Record<string, {
 
 const cities: Record<string, { name: string; state: string }> = {
   austin: { name: "Austin", state: "Texas" },
-  orlando: { name: "Orlando", state: "Florida" },
   dallas: { name: "Dallas", state: "Texas" },
-  "fort-worth": { name: "Fort Worth", state: "Texas" },
+  "collin-county": { name: "Collin County", state: "Texas" },
   chicago: { name: "Chicago", state: "Illinois" },
   "new-york-city": { name: "New York City", state: "New York" },
-  "los-angeles": { name: "Los Angeles", state: "California" },
-  "san-francisco": { name: "San Francisco", state: "California" },
-  "san-diego": { name: "San Diego", state: "California" },
   seattle: { name: "Seattle", state: "Washington" },
-  boston: { name: "Boston", state: "Massachusetts" },
-  miami: { name: "Miami", state: "Florida" },
-  detroit: { name: "Detroit", state: "Michigan" },
+  orlando: { name: "Orlando", state: "Florida" },
 };
 
 export function generateStaticParams() {

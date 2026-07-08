@@ -8,7 +8,6 @@ import { verifyAdminKey } from "@/lib/admin-auth";
 export const dynamic = "force-dynamic";
 
 const SEED_JURISDICTIONS = [
-  // TEXAS
   {
     name: "Austin, TX",
     socrata_domain: "data.austintexas.gov",
@@ -19,13 +18,7 @@ const SEED_JURISDICTIONS = [
     name: "Dallas, TX",
     socrata_domain: "www.dallasopendata.com",
     resource_id: "e7gq-4sah",
-    column_field_map: { address: "address", issued_date: "issued_date", permit_number: "permit_number" }
-  },
-  {
-    name: "Fort Worth, TX",
-    socrata_domain: "data.fortworthtexas.gov",
-    resource_id: "gqxy-4nix",
-    column_field_map: { address: "address", issued_date: "issue_date", permit_number: "permit_number", latitude: "y_coordinate", longitude: "x_coordinate" }
+    column_field_map: { address: "street_address", issued_date: "issued_date", permit_number: "permit_number" }
   },
   {
     name: "Collin County, TX",
@@ -33,78 +26,23 @@ const SEED_JURISDICTIONS = [
     resource_id: "82ee-gbj5",
     column_field_map: { address: "situsconcatshort", issued_date: "permitissueddate", permit_number: "permitnum" }
   },
-  // ILLINOIS
   {
     name: "Chicago, IL",
     socrata_domain: "data.cityofchicago.org",
     resource_id: "ydr8-5enu",
-    column_field_map: { address: "street_number", issued_date: "issue_date", permit_number: "permit_", latitude: "latitude", longitude: "longitude" }
+    column_field_map: { address: "street_name", issued_date: "issue_date", permit_number: "permit_", latitude: "latitude", longitude: "longitude" }
   },
-  // NEW YORK
   {
     name: "New York City, NY",
     socrata_domain: "data.cityofnewyork.us",
     resource_id: "rbx6-tga4",
     column_field_map: { address: "street_name", issued_date: "issued_date", permit_number: "job_filing_number", latitude: "latitude", longitude: "longitude" }
   },
-  // CALIFORNIA
-  {
-    name: "Los Angeles, CA",
-    socrata_domain: "data.lacity.org",
-    resource_id: "yv23-pmwf",
-    column_field_map: { address: "street_name", issued_date: "issue_date", permit_number: "pcis_permit" }
-  },
-  {
-    name: "San Francisco, CA",
-    socrata_domain: "data.sfgov.org",
-    resource_id: "hj9w-htr2",
-    column_field_map: { address: "location_1", issued_date: "issued_date", permit_number: "permit_number" }
-  },
-  {
-    name: "San Diego, CA",
-    socrata_domain: "data.sandiego.gov",
-    resource_id: "6c0x-sbhe",
-    column_field_map: { address: "address", issued_date: "issue_date", permit_number: "permit_number" }
-  },
-  // WASHINGTON
   {
     name: "Seattle, WA",
     socrata_domain: "data.seattle.gov",
     resource_id: "ht3q-kdvx",
     column_field_map: { address: "originaladdress1", issued_date: "applicationdate", permit_number: "permitnum", latitude: "latitude", longitude: "longitude" }
-  },
-  {
-    name: "King County, WA",
-    socrata_domain: "data.kingcounty.gov",
-    resource_id: "ep2k-f9n7",
-    column_field_map: { address: "address", issued_date: "issue_date", permit_number: "permit_number" }
-  },
-  // MASSACHUSETTS
-  {
-    name: "Boston, MA",
-    socrata_domain: "data.boston.gov",
-    resource_id: "b7a7-szrw",
-    column_field_map: { address: "address", issued_date: "issue_date", permit_number: "permit_number" }
-  },
-  // FLORIDA
-  {
-    name: "Miami-Dade County, FL",
-    socrata_domain: "opendata.miamidade.gov",
-    resource_id: "mb6e-5m3u",
-    column_field_map: { address: "site_address", issued_date: "issue_date", permit_number: "permit_number" }
-  },
-  {
-    name: "Orlando, FL",
-    socrata_domain: "data.cityoforlando.net",
-    resource_id: "ryhf-m453",
-    column_field_map: { address: "permit_address", issued_date: "issue_permit_date", permit_number: "permit_number" }
-  },
-  // MICHIGAN
-  {
-    name: "Detroit, MI",
-    socrata_domain: "data.detroitmi.gov",
-    resource_id: "a4rs-s2ux",
-    column_field_map: { address: "address", issued_date: "issue_date", permit_number: "permit_number" }
   }
 ];
 

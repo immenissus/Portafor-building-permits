@@ -167,14 +167,14 @@ export default function MarketingPage() {
         >
           <motion.div variants={fadeUp} className="mb-6 inline-flex items-center gap-2 rounded-full bg-teal-50 px-4 py-1.5 text-sm font-medium text-teal-700">
             <Bell className="h-4 w-4" />
-            Now monitoring Austin & Orlando
+            Now monitoring 7 cities across the US
           </motion.div>
           <motion.h1 variants={fadeUp} className="text-4xl font-semibold tracking-tight text-stone-950 sm:text-5xl lg:text-6xl">
             Stop chasing leads.<br />
             <span className="text-teal-700">Let permits come to you.</span>
           </motion.h1>
           <motion.p variants={fadeUp} className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-stone-600">
-            Portafor monitors real-time building permits in Austin and Orlando.
+            Portafor monitors real-time building permits in Austin, Dallas, Collin County, Chicago, New York City, Seattle, and Orlando.
             When a new roofing, HVAC, or solar permit drops in your territory
             — you get an instant email alert before your competitors even know it exists.
           </motion.p>
@@ -280,7 +280,7 @@ export default function MarketingPage() {
         <motion.div className="mx-auto grid max-w-5xl grid-cols-2 gap-8 text-center sm:grid-cols-4" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
           {[
             { value: "2,000+", label: "Permits monitored" },
-            { value: "2", label: "Cities active" },
+            { value: "7", label: "Cities active" },
             { value: "< 1 hr", label: "Alert speed" },
             { value: "30 days", label: "Free trial" }
           ].map(({ value, label }) => (
