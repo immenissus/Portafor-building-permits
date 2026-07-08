@@ -2,8 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { eq, sql } from "drizzle-orm";
-import { subscribers, alertsSent } from "@/lib/db/schema";
-import crypto from "crypto";
+import { subscribers } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +13,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch the subscriber profile
     const [subscriber] = await db
       .select()
       .from(subscribers)
@@ -33,68 +31,108 @@ export async function POST(request: Request) {
       return NextResponse.json({ detail: "No email address linked to your profile." }, { status: 400 });
     }
 
-    // Generate highly realistic mock roofing alert details
     const businessName = subscriber.businessName;
-    const filingLabel = "ROOFING PERMIT";
-    const address = "1100 Congress Ave, Austin, TX 78701";
-    const contractor = "Texas Premier Roofers";
-    const valuationStr = "$32,450.00";
-    const filedDateStr = new Date().toISOString().split("T")[0];
-    const description = "Complete removal of shingle roofing, repairing rotted decking, and installing GAF Timberline HDZ architectural shingles. Underlayment replacement with synthetic felt.";
+    const serviceArea = subscriber.serviceArea as string;
+    const filingFilters = subscriber.filingTypeFilters as string[];
 
-    const subject = `[RoofLead Alert] [TEST] New ${filingLabel} in your service area`;
-    const textBody = `Hello ${businessName},\n\nThis is a test alert to verify your email notifications are active:\n\n- Filing Type: ${filingLabel}\n- Address: ${address}\n- Date Filed: ${filedDateStr}\n- Contractor: ${contractor}\n- Project Value: ${valuationStr}\n- Description: ${description}\n\nYour lead alert system is fully operational!\nBest,\nRoofLead Team`;
+    // Fetch real permits from the subscriber's territory from the last 7 days
+    const permits = await db.execute(sql`
+      SELECT
+        f.external_id,
+        f.filing_type,
+        f.address_raw,
+        f.filed_at,
+        j.name as jurisdiction_name
+      FROM filings f
+      INNER JOIN jurisdictions j ON f.jurisdiction_id = j.id
+      WHERE ST_Contains(ST_GeomFromGeoJSON(${serviceArea}), f.geom)
+        AND f.filed_at >= NOW() - INTERVAL '7 days'
+        AND f.filing_type = ANY(${filingFilters})
+      ORDER BY f.filed_at DESC
+      LIMIT 20
+    `);
+
+    const permitCount = permits.length;
+
+    const subject = permitCount > 0
+      ? `[Portafor Test] ${permitCount} real permit${permitCount > 1 ? "s" : ""} from the last 7 days in your territory`
+      : `[Portafor Test] No permits found in your territory this week`;
+
+    // Build permit rows
+    const permitRows = permits.map((p: any) => {
+      const permitNumber = p.external_id || "N/A";
+      const type = p.filing_type === "building_permit" ? "Building Permit" : "Business License";
+      const issuedDate = new Date(p.filed_at).toLocaleDateString("en-US", {
+        year: "numeric", month: "long", day: "numeric"
+      });
+      return `
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 10px 12px; font-weight: 500; font-size: 13px;">${permitNumber}</td>
+          <td style="padding: 10px 12px; font-size: 13px;">${p.address_raw}</td>
+          <td style="padding: 10px 12px; font-size: 13px;">${p.jurisdiction_name}</td>
+          <td style="padding: 10px 12px; font-size: 13px;">${type}</td>
+          <td style="padding: 10px 12px; color: #6b7280; font-size: 13px;">${issuedDate}</td>
+        </tr>`;
+    }).join("");
+
+    const permitTable = permitCount > 0 ? `
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <thead>
+          <tr style="background-color: #f0fdfa; text-align: left;">
+            <th style="padding: 8px 12px; font-weight: 600; font-size: 13px;">Permit #</th>
+            <th style="padding: 8px 12px; font-weight: 600; font-size: 13px;">Address</th>
+            <th style="padding: 8px 12px; font-weight: 600; font-size: 13px;">City</th>
+            <th style="padding: 8px 12px; font-weight: 600; font-size: 13px;">Type</th>
+            <th style="padding: 8px 12px; font-weight: 600; font-size: 13px;">Issued</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${permitRows}
+        </tbody>
+      </table>` : `
+      <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px;">
+        <p style="margin: 0; font-size: 14px;">No permits matching your filters were found in your territory in the last 7 days. This could mean your territory is in a low-activity area, or no new permits have been filed recently.</p>
+      </div>`;
 
     const htmlBody = `
     <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 700px; margin: 0 auto; padding: 20px;">
         <div style="border-bottom: 2px solid #0d9488; padding-bottom: 10px; margin-bottom: 20px;">
-          <h2 style="color: #0f766e; margin: 0;">RoofLead Lead Alert [TEST MODE]</h2>
+          <h2 style="color: #0f766e; margin: 0;">Portafor Test Email</h2>
+          <p style="color: #6b7280; margin: 4px 0 0 0; font-size: 14px;">Last 7 days of real permits from your territory</p>
         </div>
         <p>Hello <strong>${businessName}</strong>,</p>
-        <p>This is a test alert showing what a real homeowner lead will look like when delivered to your inbox:</p>
-        
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-          <tr style="background-color: #f8fafc;">
-            <td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #e2e8f0; width: 30%;">Filing Type</td>
-            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${filingLabel}</td>
-          </tr>
-          <tr>
-            <td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Matched Address</td>
-            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${address}</td>
-          </tr>
-          <tr style="background-color: #f8fafc;">
-            <td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Date Filed</td>
-            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${filedDateStr}</td>
-          </tr>
-          <tr>
-            <td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Contractor</td>
-            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${contractor}</td>
-          </tr>
-          <tr style="background-color: #f8fafc;">
-            <td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Project Value</td>
-            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${valuationStr}</td>
-          </tr>
-        </table>
-
-        <div style="background-color: #f0fdfa; border-left: 4px solid #0d9488; padding: 15px; margin-bottom: 20px;">
-          <h4 style="margin: 0 0 8px 0; color: #0f766e;">Filing Description</h4>
-          <p style="margin: 0; font-size: 14px;">${description}</p>
+        <p>This is a test email showing <strong>${permitCount} real permit${permitCount !== 1 ? "s" : ""}</strong> filed in your territory in the last 7 days.</p>
+        ${permitTable}
+        <div style="background-color: #f0fdfa; border-left: 4px solid #0d9488; padding: 15px; margin: 20px 0;">
+          <p style="margin: 0; font-size: 14px;"><strong>Your territory filters:</strong> ${filingFilters.map(f => f === "building_permit" ? "Building Permits" : "Business Licenses").join(", ")}</p>
         </div>
-
-        <div style="background-color: #f8fafc; border: 1px dashed #cbd5e1; padding: 15px; text-align: center; margin-bottom: 25px; border-radius: 8px;">
-          <p style="margin: 0; font-weight: bold; color: #0f766e; font-size: 15px;">✅ Connection Success!</p>
-          <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Your email alerts are fully configured and ready to receive real Socrata municipal feeds.</p>
+        <div style="text-align: center; margin: 25px 0;">
+          <a href="https://www.portafor.info/dashboard" style="background-color: #0d9488; color: white; padding: 10px 24px; text-decoration: none; border-radius: 8px; font-weight: 500;">View in Dashboard</a>
         </div>
-
-        <p style="font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-          This test message was sent from RoofLead. If you did not request this, please ignore this email.
+        <p style="font-size: 12px; color: #9ca3af; margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+          This is a test message from Portafor. Your email alerts are fully configured and ready.
         </p>
       </body>
-    </html>
-    `;
+    </html>`;
 
-    // Dispatch Email (Uses Resend or falls back to server console log)
+    const textBody = [
+      `Portafor Test Email — Last 7 days of real permits`,
+      ``,
+      `Hello ${businessName},`,
+      ``,
+      `${permitCount} real permit(s) from your territory in the last 7 days:`,
+      ``,
+      ...permits.map((p: any) => {
+        const permitNumber = p.external_id || "N/A";
+        const type = p.filing_type === "building_permit" ? "Building Permit" : "Business License";
+        const issuedDate = new Date(p.filed_at).toLocaleDateString();
+        return `- [${permitNumber}] ${p.address_raw} (${p.jurisdiction_name}) — ${type} — Issued: ${issuedDate}`;
+      }),
+      ``,
+      `View in dashboard: https://www.portafor.info/dashboard`
+    ].join("\n");
+
     if (process.env.RESEND_API_KEY) {
       const senderEmail = process.env.SENDER_EMAIL || "onboarding@resend.dev";
       const emailResponse = await fetch("https://api.resend.com/emails", {
@@ -117,10 +155,10 @@ export async function POST(request: Request) {
         throw new Error(`Resend API returned error: ${errorText}`);
       }
     } else {
-      console.log(`[Test Email Mock Dispatch] Target: ${email} | Subject: ${subject}`);
+      console.log(`[Test Email Mock] To: ${email} | ${permitCount} permits`);
     }
 
-    return NextResponse.json({ success: true, email });
+    return NextResponse.json({ success: true, email, permitsFound: permitCount });
   } catch (error) {
     console.error("Failed to send test alert email:", error);
     return NextResponse.json(
