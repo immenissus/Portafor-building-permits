@@ -7,25 +7,30 @@ const services: Record<string, {
   description: string;
   content: string;
 }> = {
-  roofing: {
+  "roofing-leads": {
     name: "Roofing Leads",
     description: "Get real-time roofing permit alerts. When a homeowner files a roofing permit in your territory, you get an instant email.",
     content: "Roofing permits are filed every day across the country. Each one represents a homeowner or business that needs a new roof, repairs, or re-roofing. Portafor monitors building permit data and alerts you the moment a roofing permit is filed in your service area.",
   },
-  hvac: {
+  "hvac-leads": {
     name: "HVAC Leads",
     description: "Get real-time HVAC permit alerts. When a new HVAC permit is filed, you get notified instantly.",
     content: "HVAC permits are filed for new installations, replacements, and major repairs. Each permit represents a potential customer who needs HVAC services. Portafor tracks these permits and sends you alerts as they happen.",
   },
-  solar: {
+  "solar-leads": {
     name: "Solar Leads",
     description: "Get real-time solar permit alerts. Track new solar installation permits in your territory.",
     content: "Solar permits are filed for residential and commercial solar panel installations. These represent high-value projects. Portafor monitors solar permits and notifies you when new ones are filed in your area.",
   },
-  general: {
-    name: "Contractor Leads",
+  "building-permit-leads": {
+    name: "Building Permit Leads",
     description: "Get real-time building permit alerts for all types of construction work.",
     content: "Building permits cover a wide range of construction work — from new builds to renovations, additions, and repairs. Portafor monitors all building permits in your territory and alerts you to new opportunities.",
+  },
+  "contractor-leads": {
+    name: "Contractor Leads",
+    description: "Get real-time contractor permit alerts. Track new permits filed by contractors in your area.",
+    content: "Contractor permits are filed for electrical, plumbing, roofing, HVAC, and general construction work. Each permit represents a potential customer. Portafor monitors these permits and sends you alerts.",
   },
 };
 
