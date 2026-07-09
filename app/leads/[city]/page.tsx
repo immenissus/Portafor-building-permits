@@ -64,7 +64,7 @@ export async function generateMetadata({ params }: { params: Promise<{ city: str
 
   const title = `${city.name} Building Permit & Contractor Leads | Portafor`;
   const description = city.description;
-  const url = `https://portafor.info/leads/${citySlug}`;
+  const url = `https://www.portafor.info/leads/${citySlug}`;
 
   return {
     title,
@@ -85,7 +85,7 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
     "@type": "Service",
     name: `Building Permit Leads in ${city.name}, ${city.state}`,
     description: city.description,
-    provider: { "@type": "Organization", name: "Portafor", url: "https://portafor.info" },
+    provider: { "@type": "Organization", name: "Portafor", url: "https://www.portafor.info" },
     areaServed: { "@type": "City", name: city.name, containedInPlace: { "@type": "State", name: city.state } },
     serviceType: "Building Permit Alert Service",
   };

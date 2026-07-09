@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Portafor — Building Permit & License Alerts for Contractors",
     description: "Stop chasing leads. Let permits come to you. Real-time building permit alerts for local service contractors.",
-    url: "https://portafor.info",
+    url: "https://www.portafor.info",
     siteName: "Portafor",
     type: "website",
   },
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     description: "Real-time building permit alerts for local service contractors.",
   },
   alternates: {
-    canonical: "https://portafor.info",
+    canonical: "https://www.portafor.info",
   },
 };
 

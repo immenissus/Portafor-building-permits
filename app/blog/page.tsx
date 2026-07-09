@@ -29,11 +29,11 @@ export default function BlogPage() {
     "@context": "https://schema.org",
     "@type": "Blog",
     name: "Portafor Blog",
-    url: "https://portafor.info/blog",
+    url: "https://www.portafor.info/blog",
     blogPost: posts.map((p: BlogPost) => ({
       "@type": "BlogPosting",
       headline: p.title,
-      url: `https://portafor.info/blog/${p.slug}`,
+      url: `https://www.portafor.info/blog/${p.slug}`,
       datePublished: p.publishedAt || undefined,
       author: { "@type": "Person", name: p.author }
     }))

@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const BASE_URL = "https://portafor.info";
+const BASE_URL = "https://www.portafor.info";
 
 const cities = [
   { slug: "austin", state: "Texas" },

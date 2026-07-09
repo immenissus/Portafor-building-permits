@@ -35,13 +35,13 @@ export default function BlogPostPage() {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
     headline: post.title,
-    url: `https://portafor.info/blog/${post.slug}`,
+    url: `https://www.portafor.info/blog/${post.slug}`,
     datePublished: post.publishedAt || undefined,
     author: { "@type": "Person", name: post.author },
     publisher: {
       "@type": "Organization",
       name: "Portafor",
-      url: "https://portafor.info"
+      url: "https://www.portafor.info"
     },
     description: post.excerpt || post.title,
     image: post.coverImage || undefined

@@ -15,6 +15,6 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: "https://portafor.info/sitemap.xml",
+    sitemap: "https://www.portafor.info/sitemap.xml",
   };
 }

@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Portafor Blog — Permit & Contractor Insights",
     description: "Tips, insights, and updates about building permits and contractor lead generation.",
-    url: "https://portafor.info/blog",
+    url: "https://www.portafor.info/blog",
     siteName: "Portafor",
     type: "website",
   },
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     description: "Building permit tips and contractor insights.",
   },
   alternates: {
-    canonical: "https://portafor.info/blog",
+    canonical: "https://www.portafor.info/blog",
   },
 };
 

@@ -61,7 +61,7 @@ export async function generateMetadata({ params }: { params: Promise<{ city: str
 
   const title = `${service.name} in ${city.name}, ${city.state} | Portafor`;
   const description = `${service.description} Serving ${city.name}, ${city.state} and surrounding areas.`;
-  const url = `https://portafor.info/leads/${citySlug}/${serviceSlug}`;
+  const url = `https://www.portafor.info/leads/${citySlug}/${serviceSlug}`;
 
   return {
     title,
@@ -83,7 +83,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<{ ci
     "@type": "Service",
     name: `${service.name} in ${city.name}, ${city.state}`,
     description: service.description,
-    provider: { "@type": "Organization", name: "Portafor", url: "https://portafor.info" },
+    provider: { "@type": "Organization", name: "Portafor", url: "https://www.portafor.info" },
     areaServed: { "@type": "City", name: city.name, containedInPlace: { "@type": "State", name: city.state } },
     serviceType: service.name,
   };

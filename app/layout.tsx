@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Portafor — Building Permit & License Alerts",
     description: "Real-time building permit and business license alerts for local service contractors.",
-    url: "https://portafor.info",
+    url: "https://www.portafor.info",
     siteName: "Portafor",
     type: "website"
   },
@@ -33,8 +33,8 @@ const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "LocalBusiness",
   name: "Portafor",
-  url: "https://portafor.info",
-  logo: "https://portafor.info/favicon.png",
+  url: "https://www.portafor.info",
+  logo: "https://www.portafor.info/favicon.png",
   description: "Real-time building permit and business license alerts for local service contractors.",
   sameAs: [],
   areaServed: [
