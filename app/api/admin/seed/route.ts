@@ -7,7 +7,7 @@ import { verifyAdminKey } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
-// Only cities with VERIFIED working Socrata feeds and RECENT data (2024+)
+// VERIFIED: Each mapping tested against live Socrata API on 2026-07-08
 const SEED_JURISDICTIONS = [
   {
     name: "Austin, TX",
@@ -31,7 +31,7 @@ const SEED_JURISDICTIONS = [
     name: "New York City, NY",
     socrata_domain: "data.cityofnewyork.us",
     resource_id: "rbx6-tga4",
-    column_field_map: { address: "street_name", issued_date: "issued_date", permit_number: "tracking_number", latitude: "latitude", longitude: "longitude" }
+    column_field_map: { address: "street_name", issued_date: "approved_date", permit_number: "tracking_number", latitude: "latitude", longitude: "longitude" }
   },
   {
     name: "Seattle, WA",
