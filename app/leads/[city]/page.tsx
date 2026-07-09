@@ -16,13 +16,6 @@ const cities: Record<string, {
     highlights: ["Travis County permit data", "Same-day alerts for new filings", "Covering Austin metro area"],
     permitStats: "Austin issues thousands of building permits annually across residential and commercial projects.",
   },
-  dallas: {
-    name: "Dallas",
-    state: "Texas",
-    description: "Get real-time building permit alerts in Dallas, TX. Portafor monitors Dallas open data for new roofing, HVAC, and solar permits filed in your service area.",
-    highlights: ["Dallas open data integration", "Automated territory monitoring", "DFW metro coverage"],
-    permitStats: "Dallas is one of the fastest-growing cities in Texas with active permit issuance.",
-  },
   "collin-county": {
     name: "Collin County",
     state: "Texas",
@@ -145,8 +138,7 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
           <h2 className="text-2xl font-semibold text-stone-950">What is a building permit lead?</h2>
           <div className="mt-4 space-y-4 text-stone-600 leading-relaxed">
             <p>A building permit is filed with the city when a homeowner or business plans construction work — a new roof, HVAC installation, solar panels, or renovations. These permits are public record and represent potential customers who need your services.</p>
-            <p>Portafor monitors the {city.name} permit data feed and alerts you the moment a new permit matching your service type is filed in your territory. Instead of manually checking city websites, you get an email with the permit details, address, and filing date.</p>
-            <p>This means you can reach out to homeowners and businesses before your competitors even know the permit exists — giving you a first-mover advantage on every lead.</p>
+            <p>Portafor monitors the {city.name} permit data feed and alerts you the moment a new permit matching your service type is filed in your territory.</p>
           </div>
         </div>
       </section>
@@ -158,7 +150,6 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
             {[
               { q: `How quickly does Portafor alert me about new ${city.name} permits?`, a: `We poll the ${city.name} permit data feed every hour. Most alerts arrive within 60 minutes of a permit being posted publicly.` },
               { q: `What types of permits does Portafor track in ${city.name}?`, a: "Building permits and business licenses. We monitor new construction, renovations, roofing, HVAC, solar, and more." },
-              { q: `Can I monitor multiple areas in ${city.name}?`, a: "Yes! Draw separate territories on the map. Each territory gets its own independent monitoring and alerts." },
               { q: "Is there a free trial?", a: "Yes — every plan starts with a 30-day free trial. Cancel anytime, no contracts." },
             ].map(({ q, a }) => (
               <div key={q} className="py-5"><h3 className="text-base font-medium text-stone-900">{q}</h3><p className="mt-2 text-sm leading-relaxed text-stone-600">{a}</p></div>
@@ -181,7 +172,6 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
           <div className="flex gap-6">
             <Link href="/blog" className="hover:text-stone-700 transition">Blog</Link>
             <Link href="/pricing" className="hover:text-stone-700 transition">Pricing</Link>
-            <Link href="/privacy" className="hover:text-stone-700 transition">Privacy</Link>
           </div>
         </div>
       </footer>

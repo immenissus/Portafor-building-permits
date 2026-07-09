@@ -39,7 +39,11 @@ const organizationSchema = {
   sameAs: [],
   areaServed: [
     { "@type": "City", name: "Austin", containedInPlace: { "@type": "State", name: "Texas" } },
-    { "@type": "City", name: "Orlando", containedInPlace: { "@type": "State", name: "Florida" } }
+    { "@type": "City", name: "Collin County", containedInPlace: { "@type": "State", name: "Texas" } },
+    { "@type": "City", name: "Chicago", containedInPlace: { "@type": "State", name: "Illinois" } },
+    { "@type": "City", name: "New York City", containedInPlace: { "@type": "State", name: "New York" } },
+    { "@type": "City", name: "Seattle", containedInPlace: { "@type": "State", name: "Washington" } },
+    { "@type": "City", name: "Orlando", containedInPlace: { "@type": "State", name: "Florida" } },
   ],
   makesOffer: {
     "@type": "Offer",

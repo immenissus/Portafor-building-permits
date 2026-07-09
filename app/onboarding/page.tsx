@@ -88,7 +88,6 @@ export default function OnboardingPage() {
       if (drawMode === "circle" && !serviceArea) {
         const defaults: Record<string, [number, number]> = {
           austin: [-97.7431, 30.2672],
-          dallas: [-96.7970, 32.7767],
           collin_county: [-96.5590, 33.1972],
           chicago: [-87.6298, 41.8781],
           nyc: [-74.0060, 40.7128],
@@ -96,7 +95,7 @@ export default function OnboardingPage() {
           orlando: [-81.3789, 28.5383],
         };
         const cityNames: Record<string, string> = {
-          austin: "Austin, TX", dallas: "Dallas, TX", collin_county: "Collin County, TX",
+          austin: "Austin, TX", collin_county: "Collin County, TX",
           chicago: "Chicago, IL", nyc: "New York City, NY", seattle: "Seattle, WA", orlando: "Orlando, FL"
         };
         const defaultCenter = defaults[market] || defaults.austin;
@@ -149,7 +148,6 @@ export default function OnboardingPage() {
             <div className="mt-6 grid gap-3 sm:grid-cols-2 max-h-[400px] overflow-y-auto">
               {[
                 { id: "austin" as const, name: "Austin, TX" },
-                { id: "dallas" as const, name: "Dallas, TX" },
                 { id: "collin_county" as const, name: "Collin County, TX" },
                 { id: "chicago" as const, name: "Chicago, IL" },
                 { id: "nyc" as const, name: "New York City, NY" },

@@ -4,12 +4,11 @@ const BASE_URL = "https://portafor.info";
 
 const cities = [
   { slug: "austin", state: "Texas" },
-  { slug: "orlando", state: "Florida" },
-  { slug: "dallas", state: "Texas" },
   { slug: "collin-county", state: "Texas" },
   { slug: "chicago", state: "Illinois" },
   { slug: "new-york-city", state: "New York" },
   { slug: "seattle", state: "Washington" },
+  { slug: "orlando", state: "Florida" },
 ];
 
 const services = [

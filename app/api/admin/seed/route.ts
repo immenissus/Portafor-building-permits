@@ -7,18 +7,13 @@ import { verifyAdminKey } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
+// Only cities with VERIFIED working Socrata feeds and RECENT data (2024+)
 const SEED_JURISDICTIONS = [
   {
     name: "Austin, TX",
     socrata_domain: "data.austintexas.gov",
     resource_id: "3syk-w9eu",
     column_field_map: { address: "permit_location", issued_date: "issue_date", permit_number: "permit_number", latitude: "latitude", longitude: "longitude" }
-  },
-  {
-    name: "Dallas, TX",
-    socrata_domain: "www.dallasopendata.com",
-    resource_id: "e7gq-4sah",
-    column_field_map: { address: "street_address", issued_date: "issued_date", permit_number: "permit_number" }
   },
   {
     name: "Collin County, TX",
@@ -36,14 +31,20 @@ const SEED_JURISDICTIONS = [
     name: "New York City, NY",
     socrata_domain: "data.cityofnewyork.us",
     resource_id: "rbx6-tga4",
-    column_field_map: { address: "street_name", issued_date: "issued_date", permit_number: "job_filing_number", latitude: "latitude", longitude: "longitude" }
+    column_field_map: { address: "street_name", issued_date: "issued_date", permit_number: "tracking_number", latitude: "latitude", longitude: "longitude" }
   },
   {
     name: "Seattle, WA",
     socrata_domain: "data.seattle.gov",
     resource_id: "ht3q-kdvx",
-    column_field_map: { address: "originaladdress1", issued_date: "applicationdate", permit_number: "permitnum", latitude: "latitude", longitude: "longitude" }
-  }
+    column_field_map: { address: "originaladdress1", issued_date: "issueddate", permit_number: "permitnum", latitude: "latitude", longitude: "longitude" }
+  },
+  {
+    name: "Orlando, FL",
+    socrata_domain: "data.cityoforlando.net",
+    resource_id: "ryhf-m453",
+    column_field_map: { address: "permit_address", issued_date: "issue_permit_date", permit_number: "permit_number" }
+  },
 ];
 
 export async function POST(request: Request) {

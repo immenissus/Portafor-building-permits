@@ -31,7 +31,6 @@ const services: Record<string, {
 
 const cities: Record<string, { name: string; state: string }> = {
   austin: { name: "Austin", state: "Texas" },
-  dallas: { name: "Dallas", state: "Texas" },
   "collin-county": { name: "Collin County", state: "Texas" },
   chicago: { name: "Chicago", state: "Illinois" },
   "new-york-city": { name: "New York City", state: "New York" },
