@@ -27,6 +27,10 @@ function resolvePlanName(priceId: string | undefined, interval: string | undefin
   return planName;
 }
 
+export async function GET() {
+  return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });
+}
+
 export async function POST(request: Request) {
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
