@@ -77,10 +77,11 @@ export async function GET(
         lng: parseFloat(row.longitude as string)
       }))
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to retrieve subscriber details:", error);
-    const detail = error && typeof error === "object"
-      ? `${error.message || "Something went wrong"}${error.detail ? ` (${error.detail})` : ""}${error.hint ? ` [Hint: ${error.hint}]` : ""}`
+    const pgError = error as { message?: string; detail?: string; hint?: string } | null;
+    const detail = pgError && typeof pgError === "object"
+      ? `${pgError.message || "Something went wrong"}${pgError.detail ? ` (${pgError.detail})` : ""}${pgError.hint ? ` [Hint: ${pgError.hint}]` : ""}`
       : "Something went wrong";
     return NextResponse.json({ detail }, { status: 500 });
   }

@@ -142,19 +142,20 @@ export async function POST(request: Request) {
       updated_at: updated.updated_at,
       service_area: JSON.parse(updated.service_area as string)
     }, { status: existing ? 200 : 211 }); // 211 / 201 Created or 200 OK
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to upsert subscriber:", error);
-    
-    let dbErrorMessage = error && typeof error === "object" ? error.message : "Something went wrong";
-    if (error && typeof error === "object") {
-      if (error.detail) dbErrorMessage += ` (${error.detail})`;
-      if (error.hint) dbErrorMessage += ` [Hint: ${error.hint}]`;
-      if (error.cause) {
-        const causeMessage = error.cause instanceof Error ? error.cause.message : String(error.cause);
+
+    const pgError = error as { message?: string; detail?: string; hint?: string; cause?: unknown } | null;
+    let dbErrorMessage = pgError && typeof pgError === "object" ? pgError.message ?? "Something went wrong" : "Something went wrong";
+    if (pgError && typeof pgError === "object") {
+      if (pgError.detail) dbErrorMessage += ` (${pgError.detail})`;
+      if (pgError.hint) dbErrorMessage += ` [Hint: ${pgError.hint}]`;
+      if (pgError.cause) {
+        const causeMessage = pgError.cause instanceof Error ? pgError.cause.message : String(pgError.cause);
         dbErrorMessage += ` | Connection Cause: ${causeMessage}`;
       }
     }
-    
+
     return NextResponse.json({ detail: dbErrorMessage }, { status: 500 });
   }
 }

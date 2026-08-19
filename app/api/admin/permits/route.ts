@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
-import { verifyAdminKey } from "@/lib/admin-auth";
+import { authorizeAdmin } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    const authError = verifyAdminKey(request);
+    const authError = await authorizeAdmin(request);
     if (authError) return authError;
 
     const { searchParams } = new URL(request.url);
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
 
     if (format === "csv") {
       const csvHeader = "ID,External ID,Filing Type,Address,Filed At,Latitude,Longitude\n";
-      const csvRows = results.map((row: any) => 
+      const csvRows = results.map((row) => 
         `"${row.id}","${row.external_id}","${row.filing_type}","${row.address_raw}","${row.filed_at}","${row.latitude}","${row.longitude}"`
       ).join("\n");
       
@@ -60,10 +60,10 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      total: (countResult as any)?.total ?? 0,
+      total: (countResult as { total?: number } | undefined)?.total ?? 0,
       limit,
       offset,
-      permits: results.map((row: any) => ({
+      permits: results.map((row) => ({
         id: row.id,
         external_id: row.external_id,
         filing_type: row.filing_type,

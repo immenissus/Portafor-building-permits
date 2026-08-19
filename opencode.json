@@ -1,0 +1,51 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // Project instructions are loaded automatically from AGENTS.md at the repo root.
+  "instructions": ["AGENTS.md"],
+
+  // Project-local skills live in .opencode/skills/<name>/SKILL.md
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+
+  // LSP servers: built-ins (TypeScript/TSX via typescript-language-server, etc.)
+  // are enabled by default; this makes that explicit.
+  "lsp": true,
+
+  "mcp": {
+    // GitHub — PRs, issues, releases. Requires a GITHUB_TOKEN in the environment.
+    "github": {
+      "type": "remote",
+      "url": "https://api.github.com/mcp",
+      "enabled": true,
+      "headers": {
+        "Authorization": "Bearer {env:GITHUB_TOKEN}"
+      }
+    },
+    // Context7 — up-to-date docs for the libraries in this repo (Next 16, React 19,
+    // Drizzle, Clerk, Stripe, Mapbox GL, PostGIS).
+    "context7": {
+      "type": "local",
+      "command": ["npx", "-y", "@upstash/context7-mcp"],
+      "enabled": true
+    },
+    // Playwright — browser automation / UI testing for the Next.js app.
+    "playwright": {
+      "type": "local",
+      "command": ["npx", "-y", "@playwright/mcp"],
+      "enabled": true
+    },
+    // Postgres — read-only schema/sample inspection is enabled by default.
+    // WARNING: this grants live SQL access to your database via DATABASE_URL.
+    // To use it, set type/command and enabled: true, e.g.:
+    //   "postgres": {
+    //     "type": "local",
+    //     "command": ["npx", "-y", "@modelcontextprotocol/server-postgres", "{env:DATABASE_URL}"],
+    //     "enabled": true
+    //   }
+    "postgres": {
+      "enabled": false
+    }
+  }
+}

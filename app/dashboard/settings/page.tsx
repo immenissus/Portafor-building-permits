@@ -52,7 +52,7 @@ export default function SettingsPage() {
 
   // Initialise email from subscriber data or Clerk
   useEffect(() => {
-    const subEmail = (subscriber.data as any)?.email as string | undefined;
+    const subEmail = subscriber.data?.email;
     setEditEmail(subEmail || user?.primaryEmailAddress?.emailAddress || "");
   }, [subscriber.data, user]);
 

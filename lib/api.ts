@@ -15,10 +15,10 @@ export class ApiError extends Error {
 async function parseResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
   
-  let body: any = null;
+  let body: unknown = null;
   try {
     body = text ? JSON.parse(text) : null;
-  } catch (error) {
+  } catch {
     if (!response.ok) {
       throw new ApiError(
         response.status,
@@ -29,7 +29,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, body?.detail ?? "Something went wrong - try again", body);
+    throw new ApiError(response.status, (body as { detail?: string } | null)?.detail ?? "Something went wrong - try again", body);
   }
 
   return body as T;
@@ -81,10 +81,9 @@ export function getJurisdictionHealth(id: string, token: string) {
   return apiFetch<JurisdictionHealth>(`/jurisdictions/${id}/health`, token, {}, { isApiKey: false });
 }
 
-export function createJurisdiction(payload: unknown, token: string, adminKey: string) {
+export function createJurisdiction(payload: unknown, token: string) {
   return apiFetch<JurisdictionHealth>("/jurisdictions", token, {
     method: "POST",
-    headers: { "X-Admin-Key": adminKey },
     body: JSON.stringify(payload)
   }, { isApiKey: false });
 }

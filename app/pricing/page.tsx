@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { CheckCircle, Loader2 } from "lucide-react";
 
 const tiers = [
@@ -56,7 +55,6 @@ const tiers = [
 ];
 
 export default function PricingPage() {
-  const router = useRouter();
   const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
 

@@ -6,7 +6,7 @@ import { subscribers } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     const { userId } = await auth();
     if (!userId) {
@@ -59,10 +59,10 @@ export async function POST(request: Request) {
       : `[Portafor Test] No permits found in your territory this week`;
 
     // Build permit rows
-    const permitRows = permits.map((p: any) => {
+    const permitRows = permits.map((p) => {
       const permitNumber = p.external_id || "N/A";
       const type = p.filing_type === "building_permit" ? "Building Permit" : "Business License";
-      const issuedDate = new Date(p.filed_at).toLocaleDateString("en-US", {
+      const issuedDate = new Date(p.filed_at as string).toLocaleDateString("en-US", {
         year: "numeric", month: "long", day: "numeric"
       });
       return `
@@ -123,10 +123,10 @@ export async function POST(request: Request) {
       ``,
       `${permitCount} real permit(s) from your territory in the last 7 days:`,
       ``,
-      ...permits.map((p: any) => {
-        const permitNumber = p.external_id || "N/A";
-        const type = p.filing_type === "building_permit" ? "Building Permit" : "Business License";
-        const issuedDate = new Date(p.filed_at).toLocaleDateString();
+...permits.map((p) => {
+          const permitNumber = p.external_id || "N/A";
+          const type = p.filing_type === "building_permit" ? "Building Permit" : "Business License";
+          const issuedDate = new Date(p.filed_at as string).toLocaleDateString();
         return `- [${permitNumber}] ${p.address_raw} (${p.jurisdiction_name}) — ${type} — Issued: ${issuedDate}`;
       }),
       ``,

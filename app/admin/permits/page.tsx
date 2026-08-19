@@ -27,20 +27,13 @@ type Permit = {
   jurisdiction: string;
 };
 
-type PermitsResponse = {
-  total: number;
-  limit: number;
-  offset: number;
-  permits: Permit[];
-};
-
 export default function AdminPermitsPage() {
   const { user } = useUser();
   const { getToken } = useAuth();
   const [selectedJurisdiction, setSelectedJurisdiction] = useState<string>("");
   const [page, setPage] = useState(0);
   const limit = 50;
-  const isAdmin = user?.publicMetadata?.role === "admin" || Boolean(process.env.NEXT_PUBLIC_ADMIN_API_KEY);
+  const isAdmin = user?.publicMetadata?.role === "admin";
 
   const jurisdictionsQuery = useQuery({
     queryKey: ["jurisdictions"],
@@ -57,8 +50,9 @@ export default function AdminPermitsPage() {
         limit: String(limit),
         offset: String(page * limit)
       });
+      const token = await getTokenOrThrow(getToken);
       const res = await fetch(`/api/admin/permits?${params.toString()}`, {
-        headers: { "X-Admin-Key": process.env.NEXT_PUBLIC_ADMIN_API_KEY ?? "" }
+        headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error("Failed to fetch permits");
       return res.json();
@@ -73,7 +67,7 @@ export default function AdminPermitsPage() {
       format: "csv"
     });
     const response = await fetch(`/api/admin/permits?${params.toString()}`, {
-      headers: { "X-Admin-Key": process.env.NEXT_PUBLIC_ADMIN_API_KEY ?? "" }
+      headers: { Authorization: `Bearer ${token}` }
     });
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);

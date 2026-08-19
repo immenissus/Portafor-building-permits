@@ -31,7 +31,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_blog_posts_slug ON blog_posts (slug)
 -- alerts_sent: filing_id for joins
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_alerts_sent_filing_id ON alerts_sent (filing_id);
 -- quarantined_filings: jurisdiction lookup
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_quarantined_jurisdiction ON quarantinedFilings (jurisdiction_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_quarantined_jurisdiction ON quarantined_filings (jurisdiction_id);
 
 -- =============================================================================
 -- 3. UNIQUE CONSTRAINTS (prevent race condition duplicates)

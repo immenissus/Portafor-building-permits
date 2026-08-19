@@ -5,7 +5,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowRight, CheckCircle, Clock, Mail, Map, Search, Shield, Zap,
-  Star, Building2, Users, TrendingUp, Bell, Globe, BarChart3, Loader2
+  Star, Users, TrendingUp, Bell, Globe, BarChart3, Loader2
 } from "lucide-react";
 
 const pricingTiers = [

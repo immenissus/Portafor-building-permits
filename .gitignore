@@ -23,7 +23,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# IDEs and editors
+# IDE & editor caches
 .idea/
 .vscode/
 *.suo
@@ -31,6 +31,17 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# TypeScript build artifacts
+*.tsbuildinfo
+
+# Agent/assistant working files
+.mimocode/
+
+# Python (dev scripts, optional backend)
+__pycache__/
+*.pyc
+.venv/
 
 # Operating System files
 .DS_Store

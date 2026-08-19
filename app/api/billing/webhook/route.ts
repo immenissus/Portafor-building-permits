@@ -67,7 +67,7 @@ export async function POST(request: Request) {
 
     // 2. Extract Clerk User ID
     let clerkUserId: string | null = null;
-    const stripeObject = event.data.object as any;
+    const stripeObject = event.data.object as unknown as Record<string, unknown>;
 
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;

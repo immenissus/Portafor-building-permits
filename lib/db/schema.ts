@@ -16,7 +16,7 @@ export const geometry = customType<{ data: string; driverData: string }>({
 // SUBSCRIBERS
 export const subscribers = pgTable("subscribers", {
   id: varchar("id", { length: 255 }).primaryKey(), // Clerk User ID
-  email: varchar("email", { length: 255 }),
+  email: varchar("email", { length: 255 }).notNull(),
   businessName: varchar("business_name", { length: 255 }).notNull(),
   businessType: varchar("business_type", { length: 100 }).notNull(),
   filingTypeFilters: jsonb("filing_type_filters").$type<string[]>().notNull(),
@@ -35,6 +35,7 @@ export const jurisdictions = pgTable("jurisdictions", {
   name: varchar("name", { length: 255 }).notNull(),
   socrataDomain: varchar("socrata_domain", { length: 255 }).notNull(),
   resourceId: varchar("resource_id", { length: 50 }).notNull(),
+  filingType: varchar("filing_type", { length: 100 }).notNull().default("building_permit"),
   appToken: varchar("app_token", { length: 255 }),
   columnFieldMap: jsonb("column_field_map").notNull(),
   watermarkDatetime: timestamp("watermark_datetime"),

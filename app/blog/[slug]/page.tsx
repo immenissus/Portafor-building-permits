@@ -5,18 +5,6 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Calendar, ArrowLeft, Tag } from "lucide-react";
 
-type BlogPost = {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt: string | null;
-  content: string;
-  coverImage: string | null;
-  author: string;
-  tags: string[] | null;
-  publishedAt: string | null;
-};
-
 export default function BlogPostPage() {
   const params = useParams();
   const slug = params.slug as string;

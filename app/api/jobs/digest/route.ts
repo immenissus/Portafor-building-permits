@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sql, eq, and } from "drizzle-orm";
-import { alertsSent, subscribers, filings, jurisdictions } from "@/lib/db/schema";
+import { sql } from "drizzle-orm";
+import { authorizeAdmin } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 // Daily digest: sends ONE email per subscriber with all undelivered permits from today
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const authError = await authorizeAdmin(request);
+    if (authError) return authError;
+
     // Start of today (UTC)
     const todayStart = new Date();
     todayStart.setUTCHours(0, 0, 0, 0);
-    const todayStr = todayStart.toISOString();
 
     // Find all active subscribers with undigested alerts
     const subscribersWithAlerts = await db.execute(sql`
@@ -28,13 +30,12 @@ export async function GET() {
     `);
 
     let totalEmailsSent = 0;
-    const report: any[] = [];
+    const report: Array<Record<string, unknown>> = [];
 
     for (const sub of subscribersWithAlerts) {
       const subscriberId = sub.id as string;
       const email = sub.email as string;
       const businessName = sub.business_name as string;
-      const market = sub.market as string;
 
       if (!email) continue;
 
@@ -57,14 +58,14 @@ export async function GET() {
       if (permits.length === 0) continue;
 
       // Build the city list from the permits
-      const cities = Array.from(new Set(permits.map((p: any) => p.jurisdiction_name as string)));
+      const cities = Array.from(new Set(permits.map((p) => p.jurisdiction_name as string)));
 
       // Build digest email HTML
-      const permitRows = permits.map((p: any) => {
+      const permitRows = permits.map((p) => {
         const permitNumber = p.external_id || "N/A";
         const address = p.address_raw;
         const type = p.filing_type === "building_permit" ? "Building Permit" : "Business License";
-        const issuedDate = new Date(p.filed_at).toLocaleDateString("en-US", {
+        const issuedDate = new Date(p.filed_at as string).toLocaleDateString("en-US", {
           year: "numeric", month: "long", day: "numeric"
         });
         const city = p.jurisdiction_name;
@@ -123,10 +124,10 @@ export async function GET() {
         ``,
         `${permits.length} new permit(s) filed in your territory:`,
         ``,
-        ...permits.map((p: any) => {
+        ...permits.map((p) => {
           const permitNumber = p.external_id || "N/A";
           const type = p.filing_type === "building_permit" ? "Building Permit" : "Business License";
-          const issuedDate = new Date(p.filed_at).toLocaleDateString();
+          const issuedDate = new Date(p.filed_at as string).toLocaleDateString();
           return `- [${permitNumber}] ${p.address_raw} (${p.jurisdiction_name}) — ${type} — Issued: ${issuedDate}`;
         }),
         ``,

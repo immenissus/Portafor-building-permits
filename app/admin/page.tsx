@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Database, Plus, ShieldAlert } from "lucide-react";
@@ -30,7 +30,7 @@ export default function AdminPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const isAdmin = user?.publicMetadata?.role === "admin" || Boolean(process.env.NEXT_PUBLIC_ADMIN_API_KEY);
+  const isAdmin = user?.publicMetadata?.role === "admin";
 
   const jurisdictionsQuery = useQuery({
     queryKey: ["jurisdictions"],
@@ -44,7 +44,7 @@ export default function AdminPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Admin-Key": process.env.NEXT_PUBLIC_ADMIN_API_KEY ?? ""
+          Authorization: `Bearer ${await getTokenOrThrow(getToken)}`
         },
         body: JSON.stringify({ skip_backfill: false })
       });
@@ -74,7 +74,7 @@ export default function AdminPage() {
         app_token: form.get("app_token"),
         column_field_map: JSON.parse(String(form.get("column_field_map") || "{}"))
       };
-      await createJurisdiction(payload, await getTokenOrThrow(getToken), process.env.NEXT_PUBLIC_ADMIN_API_KEY ?? "");
+      await createJurisdiction(payload, await getTokenOrThrow(getToken));
       queryClient.invalidateQueries({ queryKey: ["jurisdictions"] });
       setOpen(false);
       toast({ title: "Jurisdiction added" });

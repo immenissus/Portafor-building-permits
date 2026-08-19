@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Edit, Eye, FileText, Plus, Save, Trash2, X } from "lucide-react";
+import { ArrowLeft, Edit, Eye, FileText, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Label, Textarea } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
+import { getTokenOrThrow } from "@/lib/use-subscriber";
 
 type BlogPost = {
   id: string;
@@ -24,6 +26,7 @@ type BlogPost = {
 };
 
 export default function BlogAdminPage() {
+  const { getToken } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<BlogPost | null>(null);
@@ -41,7 +44,9 @@ export default function BlogAdminPage() {
   const posts = useQuery({
     queryKey: ["admin-blog-posts"],
     queryFn: async () => {
-      const res = await fetch("/api/blog/posts?limit=50");
+      const res = await fetch("/api/blog/posts?limit=50&all=1", {
+        headers: { Authorization: `Bearer ${await getTokenOrThrow(getToken)}` }
+      });
       if (!res.ok) return [];
       return res.json();
     }
@@ -90,7 +95,7 @@ export default function BlogAdminPage() {
         method,
         headers: {
           "Content-Type": "application/json",
-          "X-Admin-Key": process.env.NEXT_PUBLIC_ADMIN_API_KEY ?? ""
+          Authorization: `Bearer ${await getTokenOrThrow(getToken)}`
         },
         body: JSON.stringify(body)
       });
@@ -114,7 +119,7 @@ export default function BlogAdminPage() {
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/blog/posts?id=${id}`, {
         method: "DELETE",
-        headers: { "X-Admin-Key": process.env.NEXT_PUBLIC_ADMIN_API_KEY ?? "" }
+        headers: { Authorization: `Bearer ${await getTokenOrThrow(getToken)}` }
       });
       if (!res.ok) throw new Error("Failed to delete");
       return res.json();
@@ -131,7 +136,7 @@ export default function BlogAdminPage() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "X-Admin-Key": process.env.NEXT_PUBLIC_ADMIN_API_KEY ?? ""
+          Authorization: `Bearer ${await getTokenOrThrow(getToken)}`
         },
         body: JSON.stringify({ id: post.id, published: !post.published })
       });

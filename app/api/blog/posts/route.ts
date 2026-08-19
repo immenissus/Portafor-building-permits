@@ -3,11 +3,11 @@ import { db } from "@/lib/db";
 import { blogPosts } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import crypto from "crypto";
-import { verifyAdminKey } from "@/lib/admin-auth";
+import { authorizeAdmin } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
-// GET - List published posts (public)
+// GET - List published posts (public). Use ?all=1 with admin auth to list all.
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -23,6 +23,12 @@ export async function GET(request: Request) {
       return NextResponse.json(post);
     }
 
+    const all = searchParams.get("all") === "1";
+    if (all) {
+      const authError = await authorizeAdmin(request);
+      if (authError) return authError;
+    }
+
     const posts = await db
       .select({
         id: blogPosts.id,
@@ -32,11 +38,12 @@ export async function GET(request: Request) {
         coverImage: blogPosts.coverImage,
         author: blogPosts.author,
         tags: blogPosts.tags,
+        published: blogPosts.published,
         publishedAt: blogPosts.publishedAt,
         createdAt: blogPosts.createdAt
       })
       .from(blogPosts)
-      .where(eq(blogPosts.published, true))
+      .where(all ? undefined : eq(blogPosts.published, true))
       .orderBy(desc(blogPosts.publishedAt))
       .limit(limit)
       .offset(offset);
@@ -51,7 +58,7 @@ export async function GET(request: Request) {
 // POST - Create a post (admin only)
 export async function POST(request: Request) {
   try {
-    const authError = verifyAdminKey(request);
+    const authError = await authorizeAdmin(request);
     if (authError) return authError;
 
     const body = await request.json();
@@ -85,7 +92,7 @@ export async function POST(request: Request) {
 // PUT - Update a post (admin only)
 export async function PUT(request: Request) {
   try {
-    const authError = verifyAdminKey(request);
+    const authError = await authorizeAdmin(request);
     if (authError) return authError;
 
     const body = await request.json();
@@ -95,7 +102,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ detail: "Post ID is required" }, { status: 400 });
     }
 
-    const updateData: any = { updatedAt: new Date() };
+    const updateData: Partial<typeof blogPosts.$inferInsert> = { updatedAt: new Date() };
     if (title !== undefined) updateData.title = title;
     if (slug !== undefined) updateData.slug = slug;
     if (excerpt !== undefined) updateData.excerpt = excerpt;
@@ -119,7 +126,7 @@ export async function PUT(request: Request) {
 // DELETE - Delete a post (admin only)
 export async function DELETE(request: Request) {
   try {
-    const authError = verifyAdminKey(request);
+    const authError = await authorizeAdmin(request);
     if (authError) return authError;
 
     const { searchParams } = new URL(request.url);

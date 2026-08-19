@@ -25,13 +25,11 @@ type Jurisdiction = {
   watermark_datetime: string | null;
 };
 
-type DebugInfo = {
-  jurisdictions: Jurisdiction[];
-  filingCounts: Record<string, number>;
-  quarantinedCounts: Record<string, number>;
-  totalSubscribers: number;
-  totalAlerts: number;
-  sampleFilings: any[];
+type SampleFiling = {
+  id: string;
+  external_id: string;
+  address: string;
+  filed_at: string | null;
 };
 
 export default function AdminDebugPage() {
@@ -39,7 +37,7 @@ export default function AdminDebugPage() {
   const { getToken } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const isAdmin = user?.publicMetadata?.role === "admin" || Boolean(process.env.NEXT_PUBLIC_ADMIN_API_KEY);
+  const isAdmin = user?.publicMetadata?.role === "admin";
 
   const [backfillStartDate, setBackfillStartDate] = useState("2025-06-01");
 
@@ -51,11 +49,10 @@ export default function AdminDebugPage() {
       const jurs = await apiFetch<Jurisdiction[]>("/jurisdictions", token, {}, { isApiKey: false });
 
       const filingCounts: Record<string, number> = {};
-      const quarantinedCounts: Record<string, number> = {};
 
       for (const j of jurs) {
         const permitsRes = await fetch(`/api/admin/permits?jurisdiction_id=${j.id}&limit=1`, {
-          headers: { "X-Admin-Key": process.env.NEXT_PUBLIC_ADMIN_API_KEY ?? "" }
+          headers: { Authorization: `Bearer ${token}` }
         });
         if (permitsRes.ok) {
           const data = await permitsRes.json();
@@ -64,17 +61,16 @@ export default function AdminDebugPage() {
       }
 
       const sampleRes = await fetch("/api/admin/permits?jurisdiction_id=" + (jurs[0]?.id ?? "") + "&limit=3", {
-        headers: { "X-Admin-Key": process.env.NEXT_PUBLIC_ADMIN_API_KEY ?? "" }
+        headers: { Authorization: `Bearer ${token}` }
       });
       const sampleData = sampleRes.ok ? await sampleRes.json() : { permits: [] };
 
       return {
         jurisdictions: jurs,
         filingCounts,
-        quarantinedCounts: {},
         totalSubscribers: 0,
         totalAlerts: 0,
-        sampleFilings: sampleData.permits ?? []
+        sampleFilings: (sampleData.permits ?? []) as SampleFiling[]
       };
     }
   });
@@ -83,7 +79,10 @@ export default function AdminDebugPage() {
     mutationFn: async () => {
       const res = await fetch("/api/admin/seed", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Admin-Key": process.env.NEXT_PUBLIC_ADMIN_API_KEY ?? "" }
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await getTokenOrThrow(getToken)}`
+        }
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Seed failed");
@@ -100,7 +99,10 @@ export default function AdminDebugPage() {
     mutationFn: async (jurisdictionId: string) => {
       const res = await fetch("/api/jobs/backfill", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Admin-Key": process.env.NEXT_PUBLIC_ADMIN_API_KEY ?? "" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await getTokenOrThrow(getToken)}`
+        },
         body: JSON.stringify({ jurisdiction_id: jurisdictionId, start_date: `${backfillStartDate}T00:00:00` })
       });
       const data = await res.json();
@@ -116,7 +118,9 @@ export default function AdminDebugPage() {
 
   const pollMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/jobs/poll");
+      const res = await fetch("/api/jobs/poll", {
+        headers: { Authorization: `Bearer ${await getTokenOrThrow(getToken)}` }
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Poll failed");
       return data;
@@ -262,7 +266,7 @@ ORDER BY q.created_at DESC LIMIT 20;`}
                   <tr><th className="p-2">ID</th><th className="p-2">Address</th><th className="p-2">Filed</th></tr>
                 </thead>
                 <tbody>
-                  {info.sampleFilings.map((f: any) => (
+                  {info.sampleFilings.map((f: SampleFiling) => (
                     <tr key={f.id} className="border-b border-stone-100">
                       <td className="p-2 font-mono text-xs">{f.external_id}</td>
                       <td className="p-2">{f.address}</td>
