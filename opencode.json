@@ -13,28 +13,73 @@
   // are enabled by default; this makes that explicit.
   "lsp": true,
 
+  // MCP servers. Local (npx/docker) servers can be slow on first cold start, so
+  // the default per-server and global MCP request timeouts are raised well above
+  // the 5s default. Secrets are never stored here — only {env:VAR} references.
   "mcp": {
-    // GitHub — PRs, issues, releases. Requires a GITHUB_TOKEN in the environment.
+    // GitHub — PRs, issues, releases. Official server run locally via Docker.
+    // No PAT needed: the official image ships GitHub's own OAuth app and does a
+    // browser-based login on first use (token kept in memory only). Requires
+    // Docker Desktop to be running; the container publishes the OAuth callback
+    // on 127.0.0.1:8085.
     "github": {
-      "type": "remote",
-      "url": "https://api.github.com/mcp",
+      "type": "local",
+      "command": [
+        "docker",
+        "run",
+        "-i",
+        "--rm",
+        "-p",
+        "127.0.0.1:8085:8085",
+        "-e",
+        "GITHUB_OAUTH_CALLBACK_PORT",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "environment": {
+        "GITHUB_OAUTH_CALLBACK_PORT": "8085"
+      },
       "enabled": true,
-      "headers": {
-        "Authorization": "Bearer {env:GITHUB_TOKEN}"
-      }
+      "timeout": 120000
     },
     // Context7 — up-to-date docs for the libraries in this repo (Next 16, React 19,
     // Drizzle, Clerk, Stripe, Mapbox GL, PostGIS).
     "context7": {
       "type": "local",
       "command": ["npx", "-y", "@upstash/context7-mcp"],
-      "enabled": true
+      "enabled": true,
+      "timeout": 120000
     },
     // Playwright — browser automation / UI testing for the Next.js app.
     "playwright": {
       "type": "local",
       "command": ["npx", "-y", "@playwright/mcp"],
-      "enabled": true
+      "enabled": true,
+      "timeout": 120000
+    },
+    // Supabase — OFFICIAL server, run locally via npx. Scoped to the project in
+    // SUPABASE_PROJECT_REF and authenticated with a personal access token
+    // (SUPABASE_ACCESS_TOKEN); both are read from the environment so no secrets
+    // live in this file. Token: Supabase Dashboard → Account → Access Tokens.
+    // Project ref: Dashboard → Project Settings → General.
+    "supabase": {
+      "type": "local",
+      "command": ["npx", "-y", "@supabase/mcp-server-supabase@latest"],
+      "environment": {
+        "SUPABASE_ACCESS_TOKEN": "{env:SUPABASE_ACCESS_TOKEN}",
+        "SUPABASE_PROJECT_REF": "{env:SUPABASE_PROJECT_REF}"
+      },
+      "enabled": true,
+      "timeout": 120000
+    },
+    // Sentry — OFFICIAL server. OAuth device flow on first use (browser login,
+    // token cached by the client). Scoped to whatever orgs your Sentry account
+    // can access; the app's Sentry project is configured via SENTRY_ORG /
+    // SENTRY_PROJECT for the SDK, not the MCP.
+    "sentry": {
+      "type": "remote",
+      "url": "https://mcp.sentry.dev/mcp",
+      "enabled": true,
+      "timeout": 120000
     },
     // Postgres — read-only schema/sample inspection is enabled by default.
     // WARNING: this grants live SQL access to your database via DATABASE_URL.
@@ -47,5 +92,9 @@
     "postgres": {
       "enabled": false
     }
+  },
+
+  "experimental": {
+    "mcp_timeout": 120000
   }
 }

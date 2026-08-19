@@ -42,7 +42,31 @@ Follow a strict Plan-Then-Execute cycle:
 3. **Verify** — run `npm run typecheck` and `npm run lint`; run `npm run test` for
    any touched logic.
 
-## 4. Code Style & Conventions
+## 4. TEST-FIRST RULE (MANDATORY)
+
+For every major new function, endpoint, service, database operation,
+security-sensitive behavior, data pipeline, or significant feature:
+
+- Define expected behavior/acceptance criteria first.
+- Write the relevant test BEFORE implementing the production functionality.
+- Run the test and confirm it fails for the expected reason.
+- Then implement the functionality.
+- Run the test again and confirm it passes.
+- Run the relevant regression suite.
+- For bug fixes, reproduce the bug with a failing regression test BEFORE fixing it.
+- Never write a test after implementation merely to confirm that implementation.
+- Never weaken/delete/change a test just to make the implementation pass without explicit justification.
+- Tests must verify behavior/contracts, not simply mirror implementation details.
+- Include important error, boundary, authorization/security, and regression cases where applicable.
+- If true test-first development is impractical, explicitly explain why.
+
+Required workflow:
+
+`requirement → acceptance criteria → failing test → implementation → passing test → regression tests`
+
+A major feature is NOT complete without appropriate tests.
+
+## 5. Code Style & Conventions
 
 - Functional components with arrow syntax. React Server Components by default; mark
   interactive components `"use client"`.
@@ -52,7 +76,7 @@ Follow a strict Plan-Then-Execute cycle:
   `React.forwardRef` — dropping refs breaks React Hook Form tracking.
 - Centralize all API calls in `lib/api.ts` and use React Query hooks. No duplicate logic.
 
-## 5. Security Rules (CRITICAL)
+## 6. Security Rules (CRITICAL)
 
 - **Admin key is server-only.** `ADMIN_API_KEY` must never be referenced from a
   client bundle. Do not reintroduce a `NEXT_PUBLIC_*` admin key.
@@ -61,12 +85,13 @@ Follow a strict Plan-Then-Execute cycle:
   (2) `CRON_SECRET` bearer for Vercel crons, or (3) a Clerk user with
   `publicMetadata.role === "admin"`.
 - `STRIPE_SECRET_KEY`, `CLERK_SECRET_KEY`, `RESEND_API_KEY`, `ADMIN_API_KEY`,
-  `CRON_SECRET` are server-side only — never print or send them to the client.
+  `CRON_SECRET`, `SENTRY_DSN`, `SENTRY_AUTH_TOKEN` are server-side only —
+  never print or send them to the client.
 - Never commit `.env*` files. `.env.example` must contain placeholders only.
 - `GET /api/filings` requires a valid `X-Subscriber-Key` (active subscriber) or admin.
 - `GET /api/jurisdictions` is admin-only.
 
-## 6. Database & Performance Conventions
+## 7. Database & Performance Conventions
 
 - `lib/db/index.ts` is the single Drizzle connection; migrations live in `migrations/`.
 - **Apply migrations** (`001_critical_indexes.sql`, `002_geography_indexes.sql`) to the
@@ -82,7 +107,7 @@ Follow a strict Plan-Then-Execute cycle:
 - `jurisdictions.filing_type` column (added in migration 001) is preferred over the
   fragile name-based inference (`name.toLowerCase().includes("license")`).
 
-## 7. Potentially Dead Code & Unused Data (DO NOT REMOVE WITHOUT CONFIRMATION)
+## 8. Potentially Dead Code & Unused Data (DO NOT REMOVE WITHOUT CONFIRMATION)
 
 The following are **potentially dead** — flagged by the codebase audit, not yet
 verified as safe to remove. Treat them as candidates, not cleanup tasks. Confirm with
@@ -99,9 +124,12 @@ the user before deleting:
 | Duplicated Resend email-send logic | `app/api/alerts/test/route.ts`, `app/api/jobs/digest/route.ts` | Could be extracted to a shared `sendEmail()` util |
 | `resolvePlanName` duplicated in 3 places | `app/api/billing/webhook/route.ts`, `app/api/billing/status/route.ts` | Could be a shared util |
 
-## 8. Known Environment Requirements
+## 9. Known Environment Requirements
 
 - Set `CRON_SECRET` in Vercel; `vercel.json` crons send `Authorization: Bearer $CRON_SECRET`.
 - `NEXT_PUBLIC_MAPBOX_TOKEN`, `NEXT_PUBLIC_API_URL`, `DATABASE_URL` must be configured.
+- Sentry: set `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` (and `SENTRY_AUTH_TOKEN`
+  for sourcemap uploads). `automaticVercelMonitors` (next.config.mjs) covers the
+  cron jobs; no per-handler Sentry code is required.
 - The readme's original Python FastAPI backend is not present in this repo — all backend
   logic now lives in `app/api/*` route handlers.

@@ -2,13 +2,11 @@
   "crons": [
     {
       "path": "/api/jobs/poll",
-      "schedule": "0 0 * * *",
-      "auth": "CRON_SECRET"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/jobs/digest",
-      "schedule": "0 6 * * *",
-      "auth": "CRON_SECRET"
+      "schedule": "0 6 * * *"
     }
   ]
 }
