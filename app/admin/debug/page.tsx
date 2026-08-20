@@ -17,6 +17,7 @@ type Jurisdiction = {
   socrata_domain: string;
   resource_id: string;
   is_active: boolean;
+  last_attempt_at: string | null;
   last_polled_at: string | null;
   last_success_at: string | null;
   consecutive_failures: number;
@@ -209,7 +210,8 @@ export default function AdminDebugPage() {
                         Filings: {info.filingCounts[j.id] ?? "?"} | Ingested: {j.total_ingested} | Quarantined: {j.total_quarantined}
                       </div>
                       <div className="mt-1 text-xs text-stone-500">
-                        Last polled: {j.last_polled_at ? new Date(j.last_polled_at).toLocaleString() : "Never"}
+                         Last attempted: {j.last_attempt_at ? new Date(j.last_attempt_at).toLocaleString() : "Never"}
+                         {` | Last successful: ${j.last_success_at ? new Date(j.last_success_at).toLocaleString() : "Never"}`}
                         {` | Interval: ${j.poll_interval_hours ?? 24}h`}
                         {j.watermark_datetime ? ` | Watermark: ${new Date(j.watermark_datetime).toLocaleDateString()}` : ""}
                       </div>

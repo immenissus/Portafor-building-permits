@@ -15,6 +15,7 @@ const GEOCODE_CONCURRENCY = 6;
 const DEDUPE_CHUNK_SIZE = 200;
 const PAGE_SIZE = 1000;
 const MAX_BATCHES = 10;
+const MATCH_CHUNK_SIZE = 500;
 const FETCH_TIMEOUT_MS = 30000;
 const GEOCODE_TIMEOUT_MS = 15000;
 
@@ -131,34 +132,40 @@ async function dispatchMatchedAlerts(jurisdictionId: string, prepared: PreparedC
   let total = 0;
   for (const filingType of types) {
     const typed = prepared.filter((c) => c.filingType === filingType);
-    const valuesList = typed.map((c) => sql`(${c.id}, ${c.longitude}, ${c.latitude})`);
-    const matches = await db.execute(sql`
+    for (let offset = 0; offset < typed.length; offset += MATCH_CHUNK_SIZE) {
+      const chunk = typed.slice(offset, offset + MATCH_CHUNK_SIZE);
+      const valuesList = chunk.map((c) => sql`(${c.id}, ${c.longitude}, ${c.latitude})`);
+      const matches = await db.execute(sql`
       SELECT s.id AS subscriber_id, f.filing_id AS filing_id
       FROM (VALUES ${sql.join(valuesList, sql`, `)}) AS f(filing_id, longitude, latitude)
       INNER JOIN subscribers s
         ON s.status = 'active'
        AND ${sql.raw(ENTITLED_FOR_DELIVERY_SQL)}
        AND s.filing_type_filters ? ${filingType}
-       AND ST_Contains(s.service_area, ST_SetSRID(ST_MakePoint(f.longitude, f.latitude), 4326))
+        AND ST_Contains(
+          s.service_area,
+          ST_SetSRID(ST_MakePoint(f.longitude::double precision, f.latitude::double precision), 4326)
+        )
       WHERE NOT EXISTS (
         SELECT 1
         FROM alerts_sent a
         WHERE a.subscriber_id = s.id AND a.filing_id = f.filing_id
       )
-    `);
+      `);
 
-    if (matches.length > 0) {
-      await db
-        .insert(alertsSent)
-        .values(
-          matches.map((m) => ({
-            id: crypto.randomUUID(),
-            subscriberId: String(m.subscriber_id),
-            filingId: String(m.filing_id)
-          }))
-        )
-        .onConflictDoNothing();
-      total += matches.length;
+      if (matches.length > 0) {
+        await db
+          .insert(alertsSent)
+          .values(
+            matches.map((m) => ({
+              id: crypto.randomUUID(),
+              subscriberId: String(m.subscriber_id),
+              filingId: String(m.filing_id)
+            }))
+          )
+          .onConflictDoNothing();
+        total += matches.length;
+      }
     }
   }
   return total;
@@ -328,6 +335,11 @@ export async function GET(request: Request) {
     };
 
     for (const jur of eligible) {
+      const attemptAt = new Date();
+      await db
+        .update(jurisdictions)
+        .set({ lastAttemptAt: attemptAt })
+        .where(eq(jurisdictions.id, jur.id));
       try {
         const outcome = await pollJurisdiction(jur);
         report.details.push({ jurisdiction: jur.name, ...outcome });

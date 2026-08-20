@@ -47,6 +47,7 @@ export const jurisdictions = pgTable("jurisdictions", {
   columnFieldMap: jsonb("column_field_map").notNull(),
   watermarkDatetime: timestamp("watermark_datetime"),
   isActive: boolean("is_active").default(true).notNull(),
+  lastAttemptAt: timestamp("last_attempt_at"),
   lastPolledAt: timestamp("last_polled_at"),
   lastSuccessAt: timestamp("last_success_at"),
   consecutiveFailures: integer("consecutive_failures").default(0).notNull(),

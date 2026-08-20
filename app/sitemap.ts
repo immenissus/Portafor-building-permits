@@ -19,6 +19,8 @@ const services = [
   "contractor-leads",
 ];
 
+export const revalidate = 3600;
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date().toISOString();
 
