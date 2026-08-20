@@ -1,4 +1,4 @@
-# City Data Source Audit — 2026-07-09
+# City Data Source Audit — 2026-08-20
 
 ## Working Cities
 
@@ -11,7 +11,7 @@
 | Seattle, WA | `data.seattle.gov/resource/ht3q-kdvx` | 2026-07-07 | 🟢 Working | `originaladdress1`, `issueddate`, `permitnum`, `latitude`, `longitude` |
 | Orlando, FL | `data.cityoforlando.net/resource/ryhf-m453` | 2026 | 🟢 Working | `permit_address`, `issue_permit_date`, `permit_number` |
 
-## Stale Cities
+## Stale Active Feed
 
 | City | Endpoint | Latest Permit | Reason |
 |------|----------|---------------|--------|
@@ -30,6 +30,24 @@
 | Miami-Dade, FL | `opendata.miamidade.gov/resource/mb6e-5m3u` | 302 | 🔴 Redirects to ArcGIS Hub. |
 | Detroit, MI | `data.detroitmi.gov/resource/a4rs-s2ux` | 302 | 🔴 Redirects to ArcGIS Hub. |
 
+## Archived Jurisdictions
+
+These feeds are inactive and are not polled. Historical filings, quarantined
+records, and alert-deduplication records are intentionally preserved in the
+database for audit and reporting. They can be restored if a replacement source
+is verified.
+
+| Jurisdiction | Archive reason |
+|--------------|----------------|
+| Boston, MA | The old Socrata resource is invalid; Boston uses CKAN. |
+| Detroit, MI | The old endpoint redirects to ArcGIS Hub. |
+| Fort Worth, TX | The old endpoint migrated to ArcGIS Hub. |
+| King County, WA | The old resource was removed. |
+| Los Angeles, CA | The old resource requires authentication. |
+| Miami-Dade, FL | The old endpoint redirects to ArcGIS Hub. |
+| San Diego, CA | The old resource was removed or invalid. |
+| San Francisco, CA | The old resource was removed or invalid. |
+
 ## Field Mapping Notes
 
 - **NYC**: Uses `approved_date` NOT `issued_date`. Address is `house_no` + `street_name` (separate fields).
@@ -41,8 +59,7 @@
 
 ## Recommended Actions
 
-1. **Re-run seed endpoint** to update NYC mapping (`approved_date` instead of `issued_date`)
-2. **Remove Dallas** from seed — data is 7 years stale
-3. **Consider ArcGIS adapter** for Fort Worth, Miami, Detroit if demand warrants
-4. **LA requires app token** — register at data.lacity.org for API access
-5. **Monitor Collin County** — future dates suggest data quality issues
+1. Keep the seven active feeds under poll diagnostics and verify source freshness after each forced poll.
+2. Treat Dallas as stale until a maintained replacement dataset is verified.
+3. Consider ArcGIS/CKAN adapters before restoring any archived jurisdiction.
+4. Monitor Collin County future dates and cap the ingestion watermark at the current time.

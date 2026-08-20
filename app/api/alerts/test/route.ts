@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { eq, sql } from "drizzle-orm";
 import { subscribers } from "@/lib/db/schema";
-import { filingTypeAnySql } from "@/lib/filings";
+import { filingTypeAnySql, serviceAreaSql } from "@/lib/filings";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +37,10 @@ export async function POST() {
     const filingFilters = subscriber.filingTypeFilters as string[];
 
     // Fetch real permits from the subscriber's territory from the last 7 days
+    const geometry = serviceAreaSql(serviceArea);
+    const geometryExpression = geometry.expression === "geojson"
+      ? sql`ST_GeomFromGeoJSON(${geometry.value})`
+      : sql`ST_GeomFromWKB(decode(${geometry.value}, 'hex'), 4326)`;
     const permits = await db.execute(sql`
       SELECT
         f.external_id,
@@ -46,7 +50,7 @@ export async function POST() {
         j.name as jurisdiction_name
       FROM filings f
       INNER JOIN jurisdictions j ON f.jurisdiction_id = j.id
-      WHERE ST_Contains(ST_GeomFromGeoJSON(${serviceArea}), f.geom)
+       WHERE ST_Contains(${geometryExpression}, f.geom)
         AND f.filed_at >= NOW() - INTERVAL '7 days'
         AND ${sql.raw(filingTypeAnySql(filingFilters))}
       ORDER BY f.filed_at DESC
@@ -163,7 +167,7 @@ export async function POST() {
   } catch (error) {
     console.error("Failed to send test alert email:", error);
     return NextResponse.json(
-      { detail: error instanceof Error ? error.message : "Something went wrong" },
+      { detail: "Failed to send test alert" },
       { status: 500 }
     );
   }

@@ -1,5 +1,17 @@
 const VALID_FILING_TYPES = new Set(["building_permit", "business_license"]);
 
+export function serviceAreaSql(serviceArea: string): { expression: "geojson" | "wkb"; value: string } {
+  const value = serviceArea.trim();
+  if (value.startsWith("{") || value.startsWith("[")) {
+    JSON.parse(value);
+    return { expression: "geojson", value };
+  }
+  if (/^[0-9a-f]+$/i.test(value) && value.length % 2 === 0) {
+    return { expression: "wkb", value };
+  }
+  throw new Error("Invalid service area geometry");
+}
+
 /**
  * Build the SQL predicate `f.filing_type = ANY(ARRAY[...]::text[])` from a
  * subscriber's filing type filters.
