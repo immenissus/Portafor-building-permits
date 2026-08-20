@@ -14,23 +14,22 @@ import { getTokenOrThrow } from "@/lib/use-subscriber";
 type Jurisdiction = {
   id: string;
   name: string;
-  socrata_domain: string;
-  resource_id: string;
-  is_active: boolean;
-  last_attempt_at: string | null;
-  last_polled_at: string | null;
-  last_success_at: string | null;
-  consecutive_failures: number;
-  total_ingested: number;
-  total_quarantined: number;
-  last_source_record_at: string | null;
-  last_records_fetched: number;
-  last_new_filings: number;
-  source_newest_date?: string | null;
-  last_error: string | null;
-  sync_status: string;
-  watermark_datetime: string | null;
-  poll_interval_hours: number | null;
+  socrataDomain: string;
+  resourceId: string;
+  isActive: boolean;
+  lastAttemptAt: string | null;
+  lastPolledAt: string | null;
+  lastSuccessAt: string | null;
+  consecutiveFailures: number;
+  totalIngested: number;
+  totalQuarantined: number;
+  watermarkDatetime: string | null;
+  lastSourceRecordAt: string | null;
+  lastRecordsFetched: number;
+  lastNewFilings: number;
+  lastError: string | null;
+  syncStatus: string;
+  pollIntervalHours: number | null;
 };
 
 type SampleFiling = {
@@ -206,24 +205,24 @@ export default function AdminDebugPage() {
                   <div key={j.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-stone-200 p-4">
                     <div className="flex-1 min-w-[200px]">
                       <div className="flex items-center gap-2">
-                        {j.is_active ? <CheckCircle className="h-4 w-4 text-green-600" /> : <AlertTriangle className="h-4 w-4 text-amber-600" />}
+                         {j.isActive ? <CheckCircle className="h-4 w-4 text-green-600" /> : <AlertTriangle className="h-4 w-4 text-amber-600" />}
                         <span className="font-medium">{j.name}</span>
                       </div>
                       <div className="mt-1 text-xs text-stone-500">
-                        Domain: {j.socrata_domain} | Resource: {j.resource_id}
+                         Domain: {j.socrataDomain} | Resource: {j.resourceId}
                       </div>
                       <div className="mt-1 text-xs text-stone-500">
-                         Filings: {info.filingCounts[j.id] ?? "?"} | Ingested: {j.total_ingested} | Quarantined: {j.total_quarantined}
+                         Filings: {info.filingCounts[j.id] ?? "?"} | Ingested: {j.totalIngested} | Quarantined: {j.totalQuarantined}
                       </div>
                       <div className="mt-1 text-xs text-stone-500">
-                         Last attempted: {j.last_attempt_at ? new Date(j.last_attempt_at).toLocaleString() : "Never"}
-                         {` | Last successful: ${j.last_success_at ? new Date(j.last_success_at).toLocaleString() : "Never"}`}
-                        {` | Interval: ${j.poll_interval_hours ?? 24}h`}
-                         {j.watermark_datetime ? ` | Watermark: ${new Date(j.watermark_datetime).toLocaleDateString()}` : ""}
-                         {` | Status: ${j.sync_status}`}
-                         {j.last_source_record_at ? ` | Source newest: ${new Date(j.last_source_record_at).toLocaleString()}` : ""}
-                         {` | Fetched: ${j.last_records_fetched} | New: ${j.last_new_filings}`}
-                         {j.last_error ? ` | Error: ${j.last_error}` : ""}
+                         Last attempted: {j.lastAttemptAt ? new Date(j.lastAttemptAt).toLocaleString() : "Never"}
+                         {` | Last successful: ${j.lastSuccessAt ? new Date(j.lastSuccessAt).toLocaleString() : "Never"}`}
+                         {` | Interval: ${j.pollIntervalHours ?? 24}h`}
+                         {j.watermarkDatetime ? ` | Watermark: ${new Date(j.watermarkDatetime).toLocaleDateString()}` : ""}
+                         {` | Status: ${j.syncStatus ?? "never"}`}
+                         {j.lastSourceRecordAt ? ` | Source newest: ${new Date(j.lastSourceRecordAt).toLocaleString()}` : ""}
+                         {` | Fetched: ${j.lastRecordsFetched ?? 0} | New: ${j.lastNewFilings ?? 0}`}
+                         {j.lastError ? ` | Error: ${j.lastError}` : ""}
                       </div>
                     </div>
                     <Button

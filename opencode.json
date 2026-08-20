@@ -13,6 +13,12 @@
   // are enabled by default; this makes that explicit.
   "lsp": true,
 
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 10000
+  },
+
   // MCP servers. Local (npx/docker) servers can be slow on first cold start, so
   // the default per-server and global MCP request timeouts are raised well above
   // the 5s default. Secrets are never stored here — only {env:VAR} references.

@@ -28,6 +28,7 @@ export async function GET(request: Request) {
         consecutiveFailures: jurisdictions.consecutiveFailures,
         totalIngested: jurisdictions.totalIngested,
         totalQuarantined: jurisdictions.totalQuarantined,
+        watermarkDatetime: jurisdictions.watermarkDatetime,
         lastSourceRecordAt: jurisdictions.lastSourceRecordAt,
         lastRecordsFetched: jurisdictions.lastRecordsFetched,
         lastNewFilings: jurisdictions.lastNewFilings,
