@@ -126,7 +126,7 @@ the user before deleting:
 
 ## 9. Known Environment Requirements
 
-- Set `CRON_SECRET` in Vercel; `vercel.json` crons send `Authorization: Bearer $CRON_SECRET`.
+- Set `CRON_SECRET` in Vercel. Vercel automatically sends `Authorization: Bearer $CRON_SECRET` for configured cron requests; do not add an `auth` property to `vercel.json` because the current Vercel schema rejects it.
 - `NEXT_PUBLIC_MAPBOX_TOKEN`, `NEXT_PUBLIC_API_URL`, `DATABASE_URL` must be configured.
 - Sentry: set `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` (and `SENTRY_AUTH_TOKEN`
   for sourcemap uploads). `automaticVercelMonitors` (next.config.mjs) covers the
