@@ -43,7 +43,7 @@ ALTER TABLE filings ADD CONSTRAINT uq_filings_jurisdiction_external UNIQUE (juri
 -- =============================================================================
 ALTER TABLE subscribers ADD CONSTRAINT chk_subscribers_status CHECK (status IN ('active', 'canceled', 'past_due'));
 ALTER TABLE filings ADD CONSTRAINT chk_filing_type CHECK (filing_type IN ('building_permit', 'business_license'));
-ALTER TABLE stripeWebhookEvents ADD CONSTRAINT chk_webhook_status CHECK (status IN ('pending', 'processed', 'failed'));
+ALTER TABLE stripe_webhook_events ADD CONSTRAINT chk_webhook_status CHECK (status IN ('pending', 'processed', 'failed'));
 
 -- =============================================================================
 -- 5. AUTO-UPDATE TRIGGERS (keep updated_at in sync)

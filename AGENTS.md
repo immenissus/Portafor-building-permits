@@ -133,3 +133,30 @@ the user before deleting:
   cron jobs; no per-handler Sentry code is required.
 - The readme's original Python FastAPI backend is not present in this repo — all backend
   logic now lives in `app/api/*` route handlers.
+
+## 10. Graphify Context-Graph Policy (benchmark-backed)
+
+Graphify (`@mohammednagy/graphify-ts`) builds a semantic knowledge graph of the
+codebase and lets the agent query it via MCP tools. A/B benchmark
+(2026-08-20, 5 tasks × baseline/graphify, `opencode/deepseek-v4-flash-free`)
+showed it reduces agent-session tokens on exploration-heavy work but hurts
+small localized edits:
+
+| Complexity | Token change | Notes |
+|------------|--------------|-------|
+| MEDIUM (pipeline/auth/PostGIS/billing audits) | **−48%** (1.92×) | Wins: t1 −59.8%, t4 −11.2%, t7 −63.8% |
+| LOW (single bug fix) | **+51%** (0.66×) | t8 regressed (1.24× tokens) |
+
+**Policy: enable Graphify for MEDIUM/HIGH-complexity tasks; skip it for LOW/simple
+single-file tasks.** PASS rate and hallucination rate were identical in both arms.
+
+- Install (global): `npm install -g @mohammednagy/graphify-ts@0.23.1`
+- Per project (fresh worktree): `graphify-ts generate .` then
+  `graphify-ts opencode install`. **Prerequisite:** the tracked `opencode.json` is
+  JSONC; strip comments first or install fails —
+  `python bench/scripts/strip_jsonc.py --in opencode.json --out opencode.json`.
+- Uninstall: `graphify-ts opencode uninstall` (removes plugin, MCP entry, AGENTS.md section).
+- **Cost accounting:** embedding/indexing credits are excluded from agent-session
+  token/cost stats by design (`bench/scripts/parse_stats.py`). Session tokens/cost
+  come only from `step_finish` events.
+- Re-run the benchmark: `powershell -ExecutionPolicy Bypass -File bench/run.ps1 -Tasks t1,t4,t6,t7,t8 -Repeats 1`

@@ -25,6 +25,12 @@ export const subscribers = pgTable("subscribers", {
   apiKey: varchar("api_key", { length: 255 }).unique(),
   market: varchar("market", { length: 100 }),
   status: varchar("status", { length: 50 }).default("active").notNull(),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+  billingStatus: varchar("billing_status", { length: 50 }).default("active").notNull(),
+  trialEnd: timestamp("trial_end"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  lastDigestAt: timestamp("last_digest_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
@@ -36,6 +42,7 @@ export const jurisdictions = pgTable("jurisdictions", {
   socrataDomain: varchar("socrata_domain", { length: 255 }).notNull(),
   resourceId: varchar("resource_id", { length: 50 }).notNull(),
   filingType: varchar("filing_type", { length: 100 }).notNull().default("building_permit"),
+  pollIntervalHours: integer("poll_interval_hours").default(24).notNull(),
   appToken: varchar("app_token", { length: 255 }),
   columnFieldMap: jsonb("column_field_map").notNull(),
   watermarkDatetime: timestamp("watermark_datetime"),

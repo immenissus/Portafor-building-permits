@@ -1,16 +1,22 @@
 import { NextResponse } from "next/server";
 import { createClerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { jurisdictions, filings, alertsSent, quarantinedFilings, stripeWebhookEvents } from "@/lib/db/schema";
 import { authorizeAdmin } from "@/lib/admin-auth";
 import { mapLimit } from "@/lib/async";
+import { advanceWatermark, buildSodaUrl, fetchSodaJson, normalizeSodaRecord, type ColumnFieldMap } from "@/lib/socrata";
+import { mergeClerkPublicMetadata, resolveMetadataPatch, ENTITLED_FOR_DELIVERY_SQL } from "@/lib/billing";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
 const GEOCODE_CONCURRENCY = 6;
 const DEDUPE_CHUNK_SIZE = 200;
+const PAGE_SIZE = 1000;
+const MAX_BATCHES = 10;
+const FETCH_TIMEOUT_MS = 30000;
+const GEOCODE_TIMEOUT_MS = 15000;
 
 type Candidate = {
   raw: Record<string, unknown>;
@@ -22,6 +28,8 @@ type Candidate = {
   longitude: number | null;
 };
 
+type PreparedCandidate = Candidate & { id: string };
+
 function resolveFilingType(jurisdiction: { name: string } & Record<string, unknown>): string {
   if (typeof jurisdiction.filingType === "string" && jurisdiction.filingType) {
     return jurisdiction.filingType;
@@ -29,209 +37,208 @@ function resolveFilingType(jurisdiction: { name: string } & Record<string, unkno
   return jurisdiction.name.toLowerCase().includes("license") ? "business_license" : "building_permit";
 }
 
-export async function GET(request: Request) {
+/**
+ * Heal failed Stripe webhook events using the stored payload (no hardcoded
+ * plan) and MERGED Clerk metadata (preserves role: admin).
+ */
+async function healFailedWebhookEvents(): Promise<void> {
   try {
-    const authError = await authorizeAdmin(request);
-    if (authError) return authError;
-
-    // 0. Webhook Self-Healing Retry Queue (Heals any failed Clerk synchronizations)
-    try {
-      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY ?? "" });
-      const failedEvents = await db
-        .select()
-        .from(stripeWebhookEvents)
-        .where(eq(stripeWebhookEvents.status, "failed"));
-
-      for (const event of failedEvents) {
-        if (event.clerkUserId) {
-          let success = false;
-          if (event.type === "checkout.session.completed" || event.type === "invoice.paid") {
-            await clerk.users.updateUser(event.clerkUserId, {
-              publicMetadata: { plan: "Starter Yearly", status: "active" }
-            });
-            success = true;
-          } else if (event.type === "customer.subscription.deleted") {
-            await clerk.users.updateUser(event.clerkUserId, {
-              publicMetadata: { plan: "Free", status: "active" }
-            });
-            success = true;
-          }
-
-          if (success) {
-            await db
-              .update(stripeWebhookEvents)
-              .set({ status: "processed", processedAt: new Date() })
-              .where(eq(stripeWebhookEvents.id, event.id));
-            console.log(`Self-Healing Queue: Successfully recovered event ${event.id} for user ${event.clerkUserId}`);
-          }
-        }
-      }
-    } catch (queueErr) {
-      console.error("Self-healing webhook queue recovery failed:", queueErr);
-    }
-
-    // 1. Fetch all active Socrata jurisdictions
-    const activeJurisdictions = await db
+    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY ?? "" });
+    const failedEvents = await db
       .select()
-      .from(jurisdictions)
-      .where(eq(jurisdictions.isActive, true));
+      .from(stripeWebhookEvents)
+      .where(eq(stripeWebhookEvents.status, "failed"));
 
-    // Diagnostic query: Fetch all registered jurisdictions to inspect database synchronization state
-    const allJurisdictions = await db
-      .select({ id: jurisdictions.id, name: jurisdictions.name, isActive: jurisdictions.isActive })
-      .from(jurisdictions);
-
-    const report = {
-      timestamp: new Date().toISOString(),
-      jurisdictionsProcessed: 0,
-      totalNewFilings: 0,
-      totalMatchedAlerts: 0,
-      totalJurisdictionsInDb: allJurisdictions.length,
-      allJurisdictionsInDb: allJurisdictions,
-      details: [] as Array<Record<string, unknown>>
-    };
-
-    for (const jur of activeJurisdictions) {
-      let jurNewFilings = 0;
-      let jurMatchedAlerts = 0;
-      let watermark = jur.watermarkDatetime;
-
-      // Default watermark to 24 hours ago if empty (to prevent full table downloads on initial poller run)
-      if (!watermark) {
-        watermark = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      }
-
-      const watermarkStr = watermark.toISOString().split(".")[0]; // YYYY-MM-DDTHH:MM:SS format
-      const columnFieldMap = jur.columnFieldMap as Record<string, string>;
-      const socrataUrl = `https://${jur.socrataDomain}/resource/${jur.resourceId}.json?$where=${columnFieldMap.issued_date || "issued_date"} > '${watermarkStr}'&$order=${columnFieldMap.issued_date || "issued_date"} ASC&$limit=1000`;
-
-      let response: Response;
+    for (const event of failedEvents) {
+      if (!event.clerkUserId) continue;
+      const payload = event.payload as { data?: { object?: Record<string, unknown> } };
+      const patch = resolveMetadataPatch({ type: event.type, object: payload.data?.object });
+      if (!patch) continue;
       try {
-        response = await fetch(socrataUrl, {
-          headers: jur.appToken ? { "X-App-Token": jur.appToken } : {}
-        });
-        if (!response.ok) {
-          throw new Error(`Socrata returned ${response.status} ${response.statusText}`);
-        }
-      } catch (err) {
-        console.error(`Failed to poll Socrata for ${jur.name}:`, err);
+        await mergeClerkPublicMetadata(clerk, event.clerkUserId, patch);
         await db
-          .update(jurisdictions)
-          .set({ consecutiveFailures: jur.consecutiveFailures + 1 })
-          .where(eq(jurisdictions.id, jur.id));
+          .update(stripeWebhookEvents)
+          .set({ status: "processed", processedAt: new Date() })
+          .where(eq(stripeWebhookEvents.id, event.id));
+        console.log(`Self-Healing Queue: recovered event ${event.id} for user ${event.clerkUserId}`);
+      } catch (healErr) {
+        console.error(`Self-Healing Queue: failed to heal event ${event.id}:`, healErr);
+      }
+    }
+  } catch (queueErr) {
+    console.error("Self-healing webhook queue recovery failed:", queueErr);
+  }
+}
 
-        report.details.push({
-          jurisdiction: jur.name,
-          status: "failed",
-          error: err instanceof Error ? err.message : String(err)
+/**
+ * Deduplicate candidates against existing filings with batched IN queries
+ * (fixes the broken `external_id IN ${array}` interpolation).
+ */
+async function dedupeCandidates(jurisdictionId: string, candidates: Candidate[]): Promise<Candidate[]> {
+  if (candidates.length === 0) return [];
+  const existingKeys = new Set<string>();
+  for (let i = 0; i < candidates.length; i += DEDUPE_CHUNK_SIZE) {
+    const chunk = candidates.slice(i, i + DEDUPE_CHUNK_SIZE).map((c) => c.externalId);
+    const existingRows = await db
+      .select({ externalId: filings.externalId })
+      .from(filings)
+      .where(and(eq(filings.jurisdictionId, jurisdictionId), inArray(filings.externalId, chunk)));
+    for (const row of existingRows) {
+      existingKeys.add(row.externalId);
+    }
+  }
+  return candidates.filter((c) => !existingKeys.has(c.externalId));
+}
+
+/** Geocode candidates missing coordinates with bounded concurrency + timeout. */
+async function geocodeMissing(candidates: Candidate[]): Promise<void> {
+  const needsGeocoding = candidates.filter(
+    (c) => !c.latitude || !c.longitude || isNaN(c.latitude) || isNaN(c.longitude)
+  );
+  if (needsGeocoding.length === 0) return;
+  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  if (!token) return;
+
+  await mapLimit(needsGeocoding, GEOCODE_CONCURRENCY, async (candidate) => {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), GEOCODE_TIMEOUT_MS);
+      try {
+        const geoResponse = await fetch(
+          `https://api.mapbox.com/search/geocode/v6/forward?q=${encodeURIComponent(candidate.addressRaw)}&limit=1&access_token=${token}`,
+          { signal: controller.signal }
+        );
+        if (geoResponse.ok) {
+          const geojson = await geoResponse.json();
+          const center = geojson.features?.[0]?.geometry?.coordinates;
+          if (center) {
+            candidate.longitude = center[0];
+            candidate.latitude = center[1];
+          }
+        }
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (err) {
+      console.error(`Geocoding failed for ${candidate.addressRaw}:`, err);
+    }
+  });
+}
+
+/** Batch PostGIS matcher: one ST_Contains query per filing type. */
+async function dispatchMatchedAlerts(jurisdictionId: string, prepared: PreparedCandidate[]): Promise<number> {
+  const types = [...new Set(prepared.map((c) => c.filingType))];
+  let total = 0;
+  for (const filingType of types) {
+    const typed = prepared.filter((c) => c.filingType === filingType);
+    const valuesList = typed.map((c) => sql`(${c.id}, ${c.longitude}, ${c.latitude})`);
+    const matches = await db.execute(sql`
+      SELECT s.id AS subscriber_id, f.filing_id AS filing_id
+      FROM (VALUES ${sql.join(valuesList, sql`, `)}) AS f(filing_id, longitude, latitude)
+      INNER JOIN subscribers s
+        ON s.status = 'active'
+       AND ${sql.raw(ENTITLED_FOR_DELIVERY_SQL)}
+       AND s.filing_type_filters ? ${filingType}
+       AND ST_Contains(s.service_area, ST_SetSRID(ST_MakePoint(f.longitude, f.latitude), 4326))
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM alerts_sent a
+        WHERE a.subscriber_id = s.id AND a.filing_id = f.filing_id
+      )
+    `);
+
+    if (matches.length > 0) {
+      await db
+        .insert(alertsSent)
+        .values(
+          matches.map((m) => ({
+            id: crypto.randomUUID(),
+            subscriberId: String(m.subscriber_id),
+            filingId: String(m.filing_id)
+          }))
+        )
+        .onConflictDoNothing();
+      total += matches.length;
+    }
+  }
+  return total;
+}
+
+/** Poll one jurisdiction with pagination and a future-date-safe watermark. */
+async function pollJurisdiction(jur: typeof jurisdictions.$inferSelect) {
+  const columnFieldMap = jur.columnFieldMap as ColumnFieldMap;
+  const issuedDateField = columnFieldMap.issued_date || "issued_date";
+  const now = new Date();
+  let watermark = jur.watermarkDatetime ?? new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  let newFilings = 0;
+  let alertsDispatched = 0;
+  let quarantined = 0;
+  let totalFetched = 0;
+  let batches = 0;
+
+  while (batches < MAX_BATCHES) {
+    const watermarkStr = watermark.toISOString().split(".")[0];
+    const url = buildSodaUrl(jur.socrataDomain, jur.resourceId, {
+      where: `${issuedDateField} > '${watermarkStr}'`,
+      order: `${issuedDateField} ASC`,
+      limit: PAGE_SIZE
+    });
+
+    const rawRecords = await fetchSodaJson(url, {
+      appToken: jur.appToken ?? undefined,
+      timeoutMs: FETCH_TIMEOUT_MS,
+      retries: 1
+    });
+    totalFetched += rawRecords.length;
+    if (rawRecords.length === 0) break;
+
+    const candidates: Candidate[] = [];
+    for (const raw of rawRecords) {
+      const normalized = normalizeSodaRecord(raw, columnFieldMap);
+      if (!normalized.externalId || !normalized.addressRaw || !normalized.filedAt) {
+        await db.insert(quarantinedFilings).values({
+          id: crypto.randomUUID(),
+          jurisdictionId: jur.id,
+          rawData: raw,
+          errorLog: `Missing core fields: externalId=${normalized.externalId}, address=${normalized.addressRaw}, filedAt=${normalized.filedAt}`
         });
+        quarantined++;
         continue;
       }
+      candidates.push({
+        raw,
+        externalId: normalized.externalId,
+        addressRaw: normalized.addressRaw,
+        filedAt: normalized.filedAt,
+        filingType: resolveFilingType(jur),
+        latitude: normalized.latitude,
+        longitude: normalized.longitude
+      });
+    }
 
-      const rawRecords = (await response.json()) as Array<Record<string, unknown>>;
-      const candidates: Candidate[] = [];
+    const newCandidates = await dedupeCandidates(jur.id, candidates);
+    await geocodeMissing(newCandidates);
 
-      // Phase 1: remap, validate, and normalize records
-      for (const raw of rawRecords) {
-        try {
-          const remapped: Record<string, string> = {};
-          for (const [canonicalKey, socrataKey] of Object.entries(columnFieldMap)) {
-            const value = raw[socrataKey];
-            if (value !== undefined) {
-              remapped[canonicalKey] = String(value);
-            }
-          }
-          // Copy any raw Socrata fields that weren't explicitly mapped as fallbacks
-          for (const [key, val] of Object.entries(raw)) {
-            if (remapped[key] === undefined) {
-              remapped[key] = String(val);
-            }
-          }
-
-          const externalId = remapped.permit_number || remapped.license_number || remapped.id;
-          const addressRaw = remapped.address;
-          const filedAtStr = remapped.issued_date;
-
-          if (!externalId || !addressRaw || !filedAtStr) {
-            throw new Error(`Missing core fields: externalId=${externalId}, address=${addressRaw}, filedAt=${filedAtStr}`);
-          }
-
-          const filedAt = new Date(filedAtStr);
-          if (isNaN(filedAt.getTime())) {
-            throw new Error(`Invalid date: ${filedAtStr}`);
-          }
-
-          candidates.push({
-            raw,
-            externalId: String(externalId),
-            addressRaw: String(addressRaw),
-            filedAt,
-            filingType: resolveFilingType(jur),
-            latitude: remapped.latitude ? parseFloat(remapped.latitude) : null,
-            longitude: remapped.longitude ? parseFloat(remapped.longitude) : null
-          });
-        } catch (recordError) {
-          console.error("Failed to ingest raw record:", recordError, raw);
-          await db.insert(quarantinedFilings).values({
-            id: crypto.randomUUID(),
-            jurisdictionId: jur.id,
-            rawData: raw,
-            errorLog: recordError instanceof Error ? recordError.stack || recordError.message : "Ingestion failure"
-          });
-        }
+    const toInsert = newCandidates.filter(
+      (c) => c.latitude && c.longitude && !isNaN(c.latitude) && !isNaN(c.longitude)
+    );
+    for (const c of newCandidates) {
+      if (!c.latitude || !c.longitude || isNaN(c.latitude) || isNaN(c.longitude)) {
+        await db.insert(quarantinedFilings).values({
+          id: crypto.randomUUID(),
+          jurisdictionId: jur.id,
+          rawData: c.raw,
+          errorLog: `No coordinates available for address: ${c.addressRaw}`
+        });
+        quarantined++;
       }
+    }
 
-      // Phase 2: deduplicate against existing filings in one batched query per chunk
-      let newCandidates = candidates;
-      if (newCandidates.length > 0) {
-        const existingKeys = new Set<string>();
-        for (let i = 0; i < candidates.length; i += DEDUPE_CHUNK_SIZE) {
-          const chunk = candidates.slice(i, i + DEDUPE_CHUNK_SIZE).map((c) => c.externalId);
-          const existingRows = await db.execute(sql`
-            SELECT external_id
-            FROM filings
-            WHERE jurisdiction_id = ${jur.id}
-              AND external_id IN ${chunk}
-          `);
-          for (const row of existingRows) {
-            existingKeys.add(String(row.external_id));
-          }
-        }
-        newCandidates = candidates.filter((c) => !existingKeys.has(c.externalId));
-      }
-
-      // Phase 3: geocode records missing coordinates (concurrency-limited)
-      const needsGeocoding = newCandidates.filter(
-        (c) => !c.latitude || !c.longitude || isNaN(c.latitude) || isNaN(c.longitude)
-      );
-      if (needsGeocoding.length > 0) {
-        const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-        if (token) {
-          await mapLimit(needsGeocoding, GEOCODE_CONCURRENCY, async (candidate) => {
-            const geocodeResponse = await fetch(
-              `https://api.mapbox.com/search/geocode/v6/forward?q=${encodeURIComponent(candidate.addressRaw)}&limit=1&access_token=${token}`
-            );
-            if (geocodeResponse.ok) {
-              const geojson = await geocodeResponse.json();
-              const center = geojson.features?.[0]?.geometry?.coordinates;
-              if (center) {
-                candidate.longitude = center[0];
-                candidate.latitude = center[1];
-              }
-            }
-          });
-        }
-      }
-
-      // Separate candidates with valid coordinates for insertion
-      const toInsert = newCandidates.filter(
-        (c) => c.latitude && c.longitude && !isNaN(c.latitude) && !isNaN(c.longitude)
-      );
-
-      // Phase 4: batch-insert all new filings
-      if (toInsert.length > 0) {
-        const prepared = toInsert.map((c) => ({ ...c, id: crypto.randomUUID() }));
-        await db.insert(filings).values(
+    if (toInsert.length > 0) {
+      const prepared: PreparedCandidate[] = toInsert.map((c) => ({ ...c, id: crypto.randomUUID() }));
+      const inserted = await db
+        .insert(filings)
+        .values(
           prepared.map((p) => ({
             id: p.id,
             jurisdictionId: jur.id,
@@ -242,70 +249,103 @@ export async function GET(request: Request) {
             filedAt: p.filedAt,
             rawData: p.raw
           }))
-        );
+        )
+        .onConflictDoNothing()
+        .returning({ id: filings.id });
 
-        jurNewFilings = prepared.length;
-        report.totalNewFilings += prepared.length;
+      newFilings += inserted.length;
+      alertsDispatched += await dispatchMatchedAlerts(jur.id, prepared);
+    }
 
-        // Phase 5: batch PostGIS matcher (one ST_Contains query per filing type)
-        const types = [...new Set(prepared.map((c) => c.filingType))];
-        for (const filingType of types) {
-          const typed = prepared.filter((c) => c.filingType === filingType);
-          const valuesList = typed.map((c) => sql`(${c.id}, ${c.longitude}, ${c.latitude})`);
-          const matches = await db.execute(sql`
-            SELECT s.id AS subscriber_id, f.filing_id AS filing_id
-            FROM (VALUES ${sql.join(valuesList, sql`, `)}) AS f(filing_id, longitude, latitude)
-            INNER JOIN subscribers s
-              ON s.status = 'active'
-             AND s.filing_type_filters ? ${filingType}
-             AND ST_Contains(s.service_area, ST_SetSRID(ST_MakePoint(f.longitude, f.latitude), 4326))
-            WHERE NOT EXISTS (
-              SELECT 1
-              FROM alerts_sent a
-              WHERE a.subscriber_id = s.id AND a.filing_id = f.filing_id
-            )
-          `);
+    // Advance the watermark from ALL fetched candidates (not just inserted),
+    // capped at now so future-dated permits never stall ingestion.
+    const maxSeen = candidates.length > 0 ? new Date(Math.max(...candidates.map((c) => c.filedAt.getTime()))) : null;
+    const nextWatermark = advanceWatermark(watermark, maxSeen, now);
+    if (nextWatermark <= watermark) break; // no progress -> avoid infinite loop
+    watermark = nextWatermark;
+    batches++;
 
-          if (matches.length > 0) {
-            await db.insert(alertsSent).values(
-              matches.map((m) => ({
-                id: crypto.randomUUID(),
-                subscriberId: String(m.subscriber_id),
-                filingId: String(m.filing_id)
-              }))
-            );
-            jurMatchedAlerts += matches.length;
-            report.totalMatchedAlerts += matches.length;
-          }
-        }
+    if (rawRecords.length < PAGE_SIZE) break;
+  }
+
+  await db
+    .update(jurisdictions)
+    .set({
+      watermarkDatetime: watermark,
+      consecutiveFailures: 0,
+      lastPolledAt: new Date(),
+      lastSuccessAt: new Date(),
+      totalIngested: jur.totalIngested + newFilings,
+      totalQuarantined: jur.totalQuarantined + quarantined
+    })
+    .where(eq(jurisdictions.id, jur.id));
+
+  return { status: "success", recordsFetched: totalFetched, newFilings, alertsDispatched, quarantined, batches };
+}
+
+export async function GET(request: Request) {
+  try {
+    const authError = await authorizeAdmin(request);
+    if (authError) return authError;
+
+    await healFailedWebhookEvents();
+
+    const { searchParams } = new URL(request.url);
+    const jurisdictionId = searchParams.get("jurisdiction_id");
+    const force = searchParams.get("force") === "true" || searchParams.get("force") === "1";
+
+    // Fetch all active Socrata jurisdictions (optionally a single one)
+    const activeJurisdictions = jurisdictionId
+      ? await db
+          .select()
+          .from(jurisdictions)
+          .where(and(eq(jurisdictions.isActive, true), eq(jurisdictions.id, jurisdictionId)))
+      : await db.select().from(jurisdictions).where(eq(jurisdictions.isActive, true));
+
+    // Respect per-jurisdiction poll_interval_hours (default 24h). A targeted
+    // ?jurisdiction_id= poll or ?force=true always runs immediately.
+    const eligible = activeJurisdictions.filter((jur) => {
+      if (force || jurisdictionId) return true;
+      if (!jur.lastPolledAt) return true;
+      const intervalMs = (jur.pollIntervalHours ?? 24) * 60 * 60 * 1000;
+      return Date.now() - new Date(jur.lastPolledAt).getTime() >= intervalMs;
+    });
+
+    // Diagnostic query: all registered jurisdictions to inspect sync state
+    const allJurisdictions = await db
+      .select({ id: jurisdictions.id, name: jurisdictions.name, isActive: jurisdictions.isActive })
+      .from(jurisdictions);
+
+    const report = {
+      timestamp: new Date().toISOString(),
+      jurisdictionsProcessed: 0,
+      jurisdictionsSkipped: activeJurisdictions.length - eligible.length,
+      totalNewFilings: 0,
+      totalMatchedAlerts: 0,
+      totalJurisdictionsInDb: allJurisdictions.length,
+      allJurisdictionsInDb: allJurisdictions,
+      details: [] as Array<Record<string, unknown>>
+    };
+
+    for (const jur of eligible) {
+      try {
+        const outcome = await pollJurisdiction(jur);
+        report.details.push({ jurisdiction: jur.name, ...outcome });
+        report.jurisdictionsProcessed++;
+        report.totalNewFilings += outcome.newFilings;
+        report.totalMatchedAlerts += outcome.alertsDispatched;
+      } catch (err) {
+        console.error(`Failed to poll ${jur.name}:`, err);
+        await db
+          .update(jurisdictions)
+          .set({ consecutiveFailures: jur.consecutiveFailures + 1 })
+          .where(eq(jurisdictions.id, jur.id));
+        report.details.push({
+          jurisdiction: jur.name,
+          status: "failed",
+          error: err instanceof Error ? err.message : String(err)
+        });
       }
-
-      // Advance watermark to the latest processed record
-      for (const c of toInsert) {
-        if (c.filedAt > watermark) {
-          watermark = c.filedAt;
-        }
-      }
-
-      // Update jurisdiction sync stats and watermark
-      await db
-        .update(jurisdictions)
-        .set({
-          watermarkDatetime: watermark,
-          consecutiveFailures: 0,
-          lastPolledAt: new Date(),
-          lastSuccessAt: new Date(),
-          totalIngested: jur.totalIngested + jurNewFilings
-        })
-        .where(eq(jurisdictions.id, jur.id));
-
-      report.details.push({
-        jurisdiction: jur.name,
-        rawRecordsLength: rawRecords.length,
-        newFilings: jurNewFilings,
-        alertsDispatched: jurMatchedAlerts
-      });
-      report.jurisdictionsProcessed++;
     }
 
     return NextResponse.json(report);

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { eq, sql } from "drizzle-orm";
 import { subscribers } from "@/lib/db/schema";
 import { authorizeAdmin } from "@/lib/admin-auth";
+import { isEntitledForDelivery } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +13,16 @@ export async function GET(request: Request) {
     const apiKey = request.headers.get("X-Subscriber-Key");
     if (apiKey) {
       const [subscriber] = await db
-        .select({ status: subscribers.status })
+        .select({
+          billingStatus: subscribers.billingStatus,
+          trialEnd: subscribers.trialEnd,
+          currentPeriodEnd: subscribers.currentPeriodEnd
+        })
         .from(subscribers)
         .where(eq(subscribers.apiKey, apiKey))
         .limit(1);
-      if (!subscriber || subscriber.status !== "active") {
-        return NextResponse.json({ detail: "Unauthorized - Invalid subscriber key" }, { status: 401 });
+      if (!subscriber || !isEntitledForDelivery(subscriber)) {
+        return NextResponse.json({ detail: "Unauthorized - Invalid or expired subscriber key" }, { status: 401 });
       }
     } else {
       const authError = await authorizeAdmin(request);

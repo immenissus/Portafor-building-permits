@@ -1,0 +1,21 @@
+# RoofLead — daily digest email (06:00 UTC), matching the old Vercel cron.
+#
+# Required repository secrets:
+#   APP_URL      — production origin, e.g. https://www.portafor.info
+#   CRON_SECRET  — same value as Vercel's CRON_SECRET (authorizes the job)
+name: RoofLead Soda Digest
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger /api/jobs/digest
+        run: >
+          curl -fsS --retry 3 --retry-delay 10 -o /dev/null -w "digest status %{http_code}\n"
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+          "${{ secrets.APP_URL }}/api/jobs/digest"

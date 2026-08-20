@@ -84,35 +84,39 @@ export async function POST(request: Request) {
     }
 
     // -------------------------------------------------------------------------
-    // INSTANT HISTORICAL ALERT PRE-POPULATION
+    // INSTANT HISTORICAL ALERT PRE-POPULATION (create only)
     // -------------------------------------------------------------------------
-    // Search the database for any pre-existing filings inside this contractor's newly 
-    // drawn/updated zone, and immediately link the 10 most recent as active alerts!
-    try {
-      // First, clear any old alerts associated with this contractor (for zone updates only)
-      if (existing) {
-        await db.delete(alertsSent).where(eq(alertsSent.subscriberId, userId));
-      }
+    // On FIRST creation, link the 10 most recent filings inside this contractor's
+    // zone as active alerts. On profile/zone UPDATES we deliberately do NOT touch
+    // alerts_sent — clearing + re-inserting would resurrect digested alerts and
+    // re-email old permits in the next digest run.
+    if (!existing) {
+      try {
+        const pastMatches = await db.execute(sql`
+          SELECT id 
+          FROM filings 
+          WHERE ST_Contains(ST_GeomFromGeoJSON(${serviceAreaGeoJson}), geom)
+            AND ${JSON.stringify(filing_type_filters)}::jsonb ? filing_type
+          ORDER BY filed_at DESC
+          LIMIT 10
+        `);
 
-      const pastMatches = await db.execute(sql`
-        SELECT id 
-        FROM filings 
-        WHERE ST_Contains(ST_GeomFromGeoJSON(${serviceAreaGeoJson}), geom)
-          AND ${JSON.stringify(filing_type_filters)}::jsonb ? filing_type
-        ORDER BY filed_at DESC
-        LIMIT 10
-      `);
-
-      for (const match of pastMatches) {
-        await db.insert(alertsSent).values({
-          id: crypto.randomUUID(),
-          subscriberId: userId,
-          filingId: match.id as string
-        });
+        if (pastMatches.length > 0) {
+          await db
+            .insert(alertsSent)
+            .values(
+              pastMatches.map((match) => ({
+                id: crypto.randomUUID(),
+                subscriberId: userId,
+                filingId: match.id as string
+              }))
+            )
+            .onConflictDoNothing();
+        }
+        console.log(`Instant Matching: Pre-populated subscriber ${userId} with ${pastMatches.length} historical leads.`);
+      } catch (matchErr) {
+        console.error("Instant historical alerts matching failed:", matchErr);
       }
-      console.log(`Instant Matching: Pre-populated subscriber ${userId} with ${pastMatches.length} historical leads.`);
-    } catch (matchErr) {
-      console.error("Instant historical alerts matching failed:", matchErr);
     }
 
     // Retrieve the newly created / updated record (converting geometry back to GeoJSON)

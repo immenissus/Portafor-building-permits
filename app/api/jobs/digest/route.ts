@@ -2,18 +2,20 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
 import { authorizeAdmin } from "@/lib/admin-auth";
+import { sendEmail } from "@/lib/email";
+import { digestCutoff } from "@/lib/digest";
+import { ENTITLED_FOR_DELIVERY_SQL } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
 
-// Daily digest: sends ONE email per subscriber with all undelivered permits from today
+// Daily digest: sends ONE email per subscriber with all undigested, undelivered
+// permits dispatched since the subscriber's last digest (or the last 48h).
 export async function GET(request: Request) {
   try {
     const authError = await authorizeAdmin(request);
     if (authError) return authError;
 
-    // Start of today (UTC)
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
+    const now = new Date();
 
     // Find all active subscribers with undigested alerts
     const subscribersWithAlerts = await db.execute(sql`
@@ -21,12 +23,12 @@ export async function GET(request: Request) {
         s.id,
         s.email,
         s.business_name,
-        s.market
+        s.last_digest_at
       FROM subscribers s
       INNER JOIN alerts_sent a ON a.subscriber_id = s.id
-      WHERE s.status = 'active'
-        AND s.email IS NOT NULL
+      WHERE s.email IS NOT NULL
         AND a.digested = false
+        AND ${sql.raw(ENTITLED_FOR_DELIVERY_SQL)}
     `);
 
     let totalEmailsSent = 0;
@@ -39,7 +41,10 @@ export async function GET(request: Request) {
 
       if (!email) continue;
 
-      // Get all undigested permits for this subscriber, with jurisdiction name and filing details
+      const cutoff = digestCutoff(sub.last_digest_at as Date | null, now);
+      const cutoffStr = cutoff.toISOString().split(".")[0];
+
+      // Get all undigested permits dispatched since the last digest, with jurisdiction name and filing details
       const permits = await db.execute(sql`
         SELECT
           f.external_id,
@@ -52,6 +57,7 @@ export async function GET(request: Request) {
         INNER JOIN jurisdictions j ON f.jurisdiction_id = j.id
         WHERE a.subscriber_id = ${subscriberId}
           AND a.digested = false
+          AND a.dispatched_at >= ${cutoffStr}
         ORDER BY f.filed_at DESC
       `);
 
@@ -80,7 +86,7 @@ export async function GET(request: Request) {
           </tr>`;
       }).join("");
 
-      const todayFormatted = new Date().toLocaleDateString("en-US", {
+      const todayFormatted = now.toLocaleDateString("en-US", {
         weekday: "long", year: "numeric", month: "long", day: "numeric"
       });
 
@@ -134,34 +140,14 @@ export async function GET(request: Request) {
         `View in dashboard: https://www.portafor.info/dashboard`
       ].join("\n");
 
-      // Send digest email via Resend
+      // Send digest email via Resend (shared util)
       try {
-        if (process.env.RESEND_API_KEY) {
-          const senderEmail = process.env.SENDER_EMAIL || "digest@portafor.info";
-          const emailResponse = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${process.env.RESEND_API_KEY}`
-            },
-            body: JSON.stringify({
-              from: senderEmail,
-              to: email,
-              subject: `[Portafor Digest] ${permits.length} new permit${permits.length > 1 ? "s" : ""} in your territory`,
-              html: htmlBody,
-              text: textBody
-            })
-          });
-
-          if (!emailResponse.ok) {
-            const errText = await emailResponse.text();
-            console.error(`Resend error for ${email}:`, errText);
-            report.push({ subscriber: businessName, permits: permits.length, status: "failed", error: errText });
-            continue;
-          }
-        } else {
-          console.log(`[Digest Mock] To: ${email} | ${permits.length} permits`);
-        }
+        await sendEmail({
+          to: email,
+          subject: `[Portafor Digest] ${permits.length} new permit${permits.length > 1 ? "s" : ""} in your territory`,
+          html: htmlBody,
+          text: textBody
+        });
 
         // Mark alerts as digested
         await db.execute(sql`
@@ -169,6 +155,13 @@ export async function GET(request: Request) {
           SET digested = true
           WHERE subscriber_id = ${subscriberId}
             AND digested = false
+        `);
+
+        // Record when this subscriber's digest last ran
+        await db.execute(sql`
+          UPDATE subscribers
+          SET last_digest_at = ${now.toISOString()}
+          WHERE id = ${subscriberId}
         `);
 
         totalEmailsSent++;
@@ -180,7 +173,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      timestamp: new Date().toISOString(),
+      timestamp: now.toISOString(),
       subscribersProcessed: subscribersWithAlerts.length,
       emailsSent: totalEmailsSent,
       details: report

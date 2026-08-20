@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { jurisdictions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { authorizeAdmin } from "@/lib/admin-auth";
+import { jurisdictionSchema } from "@/lib/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
         socrataDomain: jurisdictions.socrataDomain,
         resourceId: jurisdictions.resourceId,
         filingType: jurisdictions.filingType,
+        pollIntervalHours: jurisdictions.pollIntervalHours,
         isActive: jurisdictions.isActive,
         lastPolledAt: jurisdictions.lastPolledAt,
         lastSuccessAt: jurisdictions.lastSuccessAt,
@@ -42,13 +44,15 @@ export async function POST(request: Request) {
     if (authError) return authError;
 
     const body = await request.json();
-    const { name, socrata_domain, resource_id, app_token, column_field_map, filing_type } = body;
-
-    if (!name || !socrata_domain || !resource_id || !column_field_map) {
-      return NextResponse.json({ detail: "Missing required fields" }, { status: 400 });
+    const parsed = jurisdictionSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { detail: "Invalid jurisdiction payload", errors: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
 
-    const normalizedFilingType = filing_type === "business_license" ? "business_license" : "building_permit";
+    const { name, socrata_domain, resource_id, app_token, column_field_map, filing_type } = parsed.data;
 
     // Check if name already exists
     const [existing] = await db
@@ -69,7 +73,7 @@ export async function POST(request: Request) {
       name,
       socrataDomain: socrata_domain,
       resourceId: resource_id,
-      filingType: normalizedFilingType,
+      filingType: filing_type,
       appToken: app_token || null,
       columnFieldMap: column_field_map,
       isActive: true
@@ -82,7 +86,7 @@ export async function POST(request: Request) {
       resource_id,
       app_token: app_token ? "REDACTED" : null,
       column_field_map,
-      filing_type: normalizedFilingType,
+      filing_type,
       is_active: true
     }, { status: 201 });
   } catch (error) {

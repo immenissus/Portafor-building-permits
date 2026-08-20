@@ -1,22 +1,49 @@
 import { auth, createClerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { db } from "@/lib/db";
+import { subscribers } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { mapStripeStatusToBilling, resolvePlanName } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
+
+const LEGACY_STATUS = (billingStatus: string): string =>
+  billingStatus === "trialing" ? "active" : billingStatus;
 
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Fast Path: Check Clerk server-side metadata
+  // DB is the authoritative source for billing status + trial/period end dates
+  // (written by the webhook). Used even when the Clerk metadata cache hits.
+  const [subscriber] = await db
+    .select({
+      billingStatus: subscribers.billingStatus,
+      trialEnd: subscribers.trialEnd,
+      currentPeriodEnd: subscribers.currentPeriodEnd
+    })
+    .from(subscribers)
+    .where(eq(subscribers.id, userId))
+    .limit(1)
+    .catch(() => []);
+
+  // Fast Path: Clerk metadata cache for the plan name.
   try {
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY ?? "" });
     const user = await clerk.users.getUser(userId);
     const plan = user.publicMetadata.plan as string | undefined;
-    const status = user.publicMetadata.status as string | undefined;
+    const cachedStatus = user.publicMetadata.status as string | undefined;
 
     if (plan && plan !== "Free") {
-      return NextResponse.json({ plan, status: status ?? "active" });
+      const billingStatus = subscriber?.billingStatus ?? cachedStatus ?? "active";
+      return NextResponse.json({
+        plan,
+        status: LEGACY_STATUS(billingStatus),
+        billingStatus,
+        trialEnd: subscriber?.trialEnd ?? null,
+        currentPeriodEnd: subscriber?.currentPeriodEnd ?? null
+      });
     }
   } catch (error) {
     console.error("Clerk metadata retrieval failed, falling back to Stripe:", error);
@@ -24,7 +51,13 @@ export async function GET() {
 
   // Fallback: Query Stripe directly for active OR trialing subscriptions
   if (!process.env.STRIPE_SECRET_KEY) {
-    return NextResponse.json({ plan: "Free", status: "active" });
+    return NextResponse.json({
+      plan: "Free",
+      status: LEGACY_STATUS(subscriber?.billingStatus ?? "active"),
+      billingStatus: subscriber?.billingStatus ?? "active",
+      trialEnd: subscriber?.trialEnd ?? null,
+      currentPeriodEnd: subscriber?.currentPeriodEnd ?? null
+    });
   }
 
   try {
@@ -35,7 +68,13 @@ export async function GET() {
     });
 
     if (!customers.data || customers.data.length === 0) {
-      return NextResponse.json({ plan: "Free", status: "active" });
+      return NextResponse.json({
+        plan: "Free",
+        status: LEGACY_STATUS(subscriber?.billingStatus ?? "active"),
+        billingStatus: subscriber?.billingStatus ?? "active",
+        trialEnd: subscriber?.trialEnd ?? null,
+        currentPeriodEnd: subscriber?.currentPeriodEnd ?? null
+      });
     }
 
     // Check for active subscriptions first, then trialing
@@ -58,24 +97,35 @@ export async function GET() {
       const sub = subscriptions.data[0];
       const priceId = sub.items.data[0]?.price.id;
       const interval = sub.items.data[0]?.price.recurring?.interval;
+      const planName = resolvePlanName(priceId, interval);
+      const billingStatus = mapStripeStatusToBilling(sub.status);
+      const trialEnd = sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null;
+      const currentPeriodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null;
 
-      let planName = "Starter";
-      if (priceId === process.env.STRIPE_PRO_PRICE_ID || priceId === process.env.STRIPE_PRO_YEARLY_PRICE_ID) {
-        planName = "Professional";
-      } else if (priceId === process.env.STRIPE_ENTERPRISE_PRICE_ID || priceId === process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID) {
-        planName = "Enterprise";
-      }
-      if (interval === "year") planName += " Yearly";
-
-      // Map Stripe status to our status
-      const mappedStatus = sub.status === "trialing" ? "active" : sub.status;
-
-      return NextResponse.json({ plan: planName, status: mappedStatus });
+      return NextResponse.json({
+        plan: planName,
+        status: LEGACY_STATUS(billingStatus),
+        billingStatus,
+        trialEnd,
+        currentPeriodEnd
+      });
     }
 
-    return NextResponse.json({ plan: "Free", status: "active" });
+    return NextResponse.json({
+      plan: "Free",
+      status: LEGACY_STATUS(subscriber?.billingStatus ?? "active"),
+      billingStatus: subscriber?.billingStatus ?? "active",
+      trialEnd: subscriber?.trialEnd ?? null,
+      currentPeriodEnd: subscriber?.currentPeriodEnd ?? null
+    });
   } catch (error) {
     console.error("Failed to fetch billing status from Stripe:", error);
-    return NextResponse.json({ plan: "Free", status: "active" });
+    return NextResponse.json({
+      plan: "Free",
+      status: LEGACY_STATUS(subscriber?.billingStatus ?? "active"),
+      billingStatus: subscriber?.billingStatus ?? "active",
+      trialEnd: subscriber?.trialEnd ?? null,
+      currentPeriodEnd: subscriber?.currentPeriodEnd ?? null
+    });
   }
 }

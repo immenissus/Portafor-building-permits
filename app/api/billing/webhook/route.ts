@@ -2,8 +2,9 @@ import { createClerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { db } from "@/lib/db";
-import { stripeWebhookEvents } from "@/lib/db/schema";
+import { stripeWebhookEvents, subscribers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { mergeClerkPublicMetadata, resolvePlanName, mapStripeStatusToBilling } from "@/lib/billing";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
   apiVersion: "2024-06-20",
@@ -15,20 +16,36 @@ const clerk = createClerkClient({
 
 export const dynamic = "force-dynamic";
 
-// Helper: Resolve plan name from price ID
-function resolvePlanName(priceId: string | undefined, interval: string | undefined): string {
-  let planName = "Starter";
-  if (priceId === process.env.STRIPE_PRO_PRICE_ID || priceId === process.env.STRIPE_PRO_YEARLY_PRICE_ID) {
-    planName = "Professional";
-  } else if (priceId === process.env.STRIPE_ENTERPRISE_PRICE_ID || priceId === process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID) {
-    planName = "Enterprise";
-  }
-  if (interval === "year") planName += " Yearly";
-  return planName;
-}
-
 export async function GET() {
   return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });
+}
+
+/** Resolve the Clerk user for a Stripe event with multiple fallbacks. */
+async function resolveClerkUserId(event: Stripe.Event): Promise<string | null> {
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    return session.client_reference_id ?? session.metadata?.clerk_user_id ?? null;
+  }
+
+  const stripeObject = event.data.object as unknown as Record<string, unknown>;
+  // Metadata propagated at checkout lands on the subscription object itself.
+  const objectMeta = stripeObject.metadata as Record<string, unknown> | undefined;
+  const fromObject = objectMeta?.clerk_user_id as string | undefined;
+  if (fromObject) return fromObject;
+
+  // Fallback: customer metadata (covers legacy customers created without it).
+  const customerId = stripeObject.customer as string;
+  if (customerId) {
+    try {
+      const customer = await stripe.customers.retrieve(customerId);
+      if (!customer.deleted) {
+        return customer.metadata?.clerk_user_id ?? null;
+      }
+    } catch (err) {
+      console.error(`Failed to retrieve customer ${customerId} from Stripe:`, err);
+    }
+  }
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -66,26 +83,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Extract Clerk User ID
-    let clerkUserId: string | null = null;
-    const stripeObject = event.data.object as unknown as Record<string, unknown>;
-
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as Stripe.Checkout.Session;
-      clerkUserId = session.client_reference_id ?? session.metadata?.clerk_user_id ?? null;
-    } else {
-      // For subscription events, get user from customer metadata
-      const customerId = stripeObject.customer as string;
-      if (customerId) {
-        try {
-          const customer = await stripe.customers.retrieve(customerId);
-          if (!customer.deleted) {
-            clerkUserId = customer.metadata?.clerk_user_id ?? null;
-          }
-        } catch (err) {
-          console.error(`Failed to retrieve customer ${customerId} from Stripe:`, err);
-        }
-      }
-    }
+    const clerkUserId = await resolveClerkUserId(event);
 
     // 3. Log event as 'pending'
     if (!existingEvent) {
@@ -108,9 +106,13 @@ export async function POST(request: Request) {
           const tier = session.metadata?.tier || "starter";
           const interval = session.metadata?.interval || "monthly";
           const planName = tier.charAt(0).toUpperCase() + tier.slice(1) + (interval === "yearly" ? " Yearly" : "");
-          await clerk.users.updateUser(clerkUserId, {
-            publicMetadata: { plan: planName, status: "active" }
-          });
+          await mergeClerkPublicMetadata(clerk, clerkUserId, { plan: planName, status: "active" });
+          if (session.customer) {
+            await db
+              .update(subscribers)
+              .set({ stripeCustomerId: String(session.customer) })
+              .where(eq(subscribers.id, clerkUserId));
+          }
           processedSuccessfully = true;
           console.log(`Provisioned ${planName} for user ${clerkUserId}`);
         }
@@ -125,16 +127,23 @@ export async function POST(request: Request) {
           const priceId = sub.items.data[0]?.price.id;
           const interval = sub.items.data[0]?.price.recurring?.interval;
           const planName = resolvePlanName(priceId, interval);
+          const billingStatus = mapStripeStatusToBilling(sub.status);
+          const trialEnd = sub.trial_end ? new Date(sub.trial_end * 1000) : null;
+          const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+          const status = billingStatus === "canceled" ? "canceled" : billingStatus === "past_due" ? "past_due" : "active";
 
-          // Map Stripe status to our status
-          let status = "active";
-          if (sub.status === "trialing") status = "active"; // Trials are active
-          else if (sub.status === "past_due") status = "past_due";
-          else if (sub.status === "canceled" || sub.status === "unpaid") status = "canceled";
-
-          await clerk.users.updateUser(clerkUserId, {
-            publicMetadata: { plan: planName, status }
-          });
+          await mergeClerkPublicMetadata(clerk, clerkUserId, { plan: planName, status: billingStatus });
+          await db
+            .update(subscribers)
+            .set({
+              stripeCustomerId: typeof sub.customer === "string" ? sub.customer : undefined,
+              stripeSubscriptionId: sub.id,
+              billingStatus,
+              trialEnd,
+              currentPeriodEnd: periodEnd,
+              status
+            })
+            .where(eq(subscribers.id, clerkUserId));
           processedSuccessfully = true;
           console.log(`Subscription ${event.type}: ${planName} (${sub.status}) for user ${clerkUserId}`);
         }
@@ -144,19 +153,23 @@ export async function POST(request: Request) {
       case "invoice.paid": {
         if (clerkUserId) {
           const invoice = event.data.object as Stripe.Invoice;
-          const subId = invoice.subscription as string;
+          const subId = invoice.subscription as string | undefined;
           let planName = "Starter";
+          let periodEnd: Date | null = null;
           if (subId) {
             try {
               const sub = await stripe.subscriptions.retrieve(subId);
               const priceId = sub.items.data[0]?.price.id;
               const interval = sub.items.data[0]?.price.recurring?.interval;
               planName = resolvePlanName(priceId, interval);
+              if (sub.current_period_end) periodEnd = new Date(sub.current_period_end * 1000);
             } catch {}
           }
-          await clerk.users.updateUser(clerkUserId, {
-            publicMetadata: { plan: planName, status: "active" }
-          });
+          await mergeClerkPublicMetadata(clerk, clerkUserId, { plan: planName, status: "active" });
+          await db
+            .update(subscribers)
+            .set({ billingStatus: "active", currentPeriodEnd: periodEnd, status: "active" })
+            .where(eq(subscribers.id, clerkUserId));
           processedSuccessfully = true;
           console.log(`Renewed ${planName} for user ${clerkUserId}`);
         }
@@ -165,9 +178,11 @@ export async function POST(request: Request) {
 
       case "invoice.payment_failed": {
         if (clerkUserId) {
-          await clerk.users.updateUser(clerkUserId, {
-            publicMetadata: { status: "past_due" }
-          });
+          await mergeClerkPublicMetadata(clerk, clerkUserId, { status: "past_due" });
+          await db
+            .update(subscribers)
+            .set({ billingStatus: "past_due", status: "past_due" })
+            .where(eq(subscribers.id, clerkUserId));
           processedSuccessfully = true;
           console.warn(`Payment failed, status set to past_due for user ${clerkUserId}`);
         }
@@ -176,9 +191,11 @@ export async function POST(request: Request) {
 
       case "customer.subscription.deleted": {
         if (clerkUserId) {
-          await clerk.users.updateUser(clerkUserId, {
-            publicMetadata: { plan: "Free", status: "active" }
-          });
+          await mergeClerkPublicMetadata(clerk, clerkUserId, { plan: "Free", status: "active" });
+          await db
+            .update(subscribers)
+            .set({ billingStatus: "canceled", status: "canceled" })
+            .where(eq(subscribers.id, clerkUserId));
           processedSuccessfully = true;
           console.log(`Subscription deleted, user ${clerkUserId} downgraded to Free`);
         }

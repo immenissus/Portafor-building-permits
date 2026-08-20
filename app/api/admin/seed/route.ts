@@ -28,14 +28,14 @@ const SEED_JURISDICTIONS = [
     socrata_domain: "data.cityofchicago.org",
     resource_id: "ydr8-5enu",
     filing_type: "building_permit",
-    column_field_map: { address: "street_name", issued_date: "issue_date", permit_number: "permit_", latitude: "latitude", longitude: "longitude" }
+    column_field_map: { address: ["street_number", "street_direction", "street_name"], issued_date: "issue_date", permit_number: "permit_", latitude: "latitude", longitude: "longitude" }
   },
   {
     name: "New York City, NY",
     socrata_domain: "data.cityofnewyork.us",
     resource_id: "rbx6-tga4",
     filing_type: "building_permit",
-    column_field_map: { address: "street_name", issued_date: "approved_date", permit_number: "tracking_number", latitude: "latitude", longitude: "longitude" }
+    column_field_map: { address: ["house_no", "street_name"], issued_date: "approved_date", permit_number: "tracking_number", latitude: "latitude", longitude: "longitude" }
   },
   {
     name: "Seattle, WA",

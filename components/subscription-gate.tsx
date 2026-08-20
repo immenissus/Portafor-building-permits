@@ -42,7 +42,19 @@ function SubscriptionGateInner({ children }: { children: React.ReactNode }) {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         const apiPlan = data?.plan as string | undefined;
-        if (apiPlan && apiPlan !== "Free") {
+        const apiBillingStatus = data?.billingStatus as string | undefined;
+        const trialEnd = data?.trialEnd ? new Date(data.trialEnd as string) : null;
+        const periodEnd = data?.currentPeriodEnd ? new Date(data.currentPeriodEnd as string) : null;
+        const expired =
+          (trialEnd && trialEnd.getTime() < Date.now()) ||
+          (periodEnd && periodEnd.getTime() < Date.now());
+        const entitled =
+          apiPlan &&
+          apiPlan !== "Free" &&
+          apiBillingStatus !== "past_due" &&
+          apiBillingStatus !== "canceled" &&
+          !expired;
+        if (entitled) {
           setAllowed(true);
           router.refresh();
         } else {

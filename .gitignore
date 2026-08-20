@@ -49,3 +49,7 @@ Thumbs.db
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Benchmark generated output (runs + aggregate artifacts)
+bench/runs/
+bench/aggregate/

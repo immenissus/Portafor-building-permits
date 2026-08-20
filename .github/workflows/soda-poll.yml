@@ -1,0 +1,26 @@
+# RoofLead — hourly Socrata poll.
+#
+# Vercel Hobby does not run crons, so this external scheduler drives
+# /api/jobs/poll. The route itself honors each jurisdiction's
+# poll_interval_hours, so an hourly trigger yields ~1 poll/day per city by
+# default (cities with a shorter interval poll more often).
+#
+# Required repository secrets:
+#   APP_URL      — production origin, e.g. https://www.portafor.info
+#   CRON_SECRET  — same value as Vercel's CRON_SECRET (authorizes the job)
+name: RoofLead Soda Poll
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger /api/jobs/poll
+        run: >
+          curl -fsS --retry 3 --retry-delay 10 -o /dev/null -w "poll status %{http_code}\n"
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+          "${{ secrets.APP_URL }}/api/jobs/poll"

@@ -23,6 +23,7 @@ type Jurisdiction = {
   total_ingested: number;
   total_quarantined: number;
   watermark_datetime: string | null;
+  poll_interval_hours: number | null;
 };
 
 type SampleFiling = {
@@ -118,7 +119,7 @@ export default function AdminDebugPage() {
 
   const pollMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/jobs/poll", {
+      const res = await fetch("/api/jobs/poll?force=true", {
         headers: { Authorization: `Bearer ${await getTokenOrThrow(getToken)}` }
       });
       const data = await res.json();
@@ -128,6 +129,22 @@ export default function AdminDebugPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["debug-info"] });
       toast({ title: "Poll complete", description: `Processed ${data.jurisdictionsProcessed ?? 0} jurisdictions, ${data.totalNewFilings ?? 0} new filings` });
+    },
+    onError: (e) => toast({ title: "Poll failed", description: e instanceof Error ? e.message : String(e) })
+  });
+
+  const pollJurisdictionMutation = useMutation({
+    mutationFn: async (jurisdictionId: string) => {
+      const res = await fetch(`/api/jobs/poll?jurisdiction_id=${jurisdictionId}`, {
+        headers: { Authorization: `Bearer ${await getTokenOrThrow(getToken)}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Poll failed");
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["debug-info"] });
+      toast({ title: "Poll complete", description: `${data.totalNewFilings ?? 0} new filings ingested` });
     },
     onError: (e) => toast({ title: "Poll failed", description: e instanceof Error ? e.message : String(e) })
   });
@@ -193,9 +210,18 @@ export default function AdminDebugPage() {
                       </div>
                       <div className="mt-1 text-xs text-stone-500">
                         Last polled: {j.last_polled_at ? new Date(j.last_polled_at).toLocaleString() : "Never"}
+                        {` | Interval: ${j.poll_interval_hours ?? 24}h`}
                         {j.watermark_datetime ? ` | Watermark: ${new Date(j.watermark_datetime).toLocaleDateString()}` : ""}
                       </div>
                     </div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => pollJurisdictionMutation.mutate(j.id)}
+                      disabled={pollJurisdictionMutation.isPending}
+                    >
+                      {pollJurisdictionMutation.isPending ? "Polling..." : "Poll"}
+                    </Button>
                     <Button
                       variant="secondary"
                       size="sm"
