@@ -57,7 +57,20 @@ export async function fetchSodaJson(
         signal: controller.signal
       });
       if (response.ok) {
-        return (await response.json()) as Record<string, unknown>[];
+        const contentType = response.headers.get("content-type") ?? "";
+        const text = await response.text();
+        if (!contentType.includes("json")) {
+          throw new Error(
+            `Socrata returned non-JSON content (${contentType || "unknown"}) for ${url}: ${text.slice(0, 80).replace(/\s+/g, " ")}`
+          );
+        }
+        try {
+          return JSON.parse(text) as Record<string, unknown>[];
+        } catch {
+          throw new Error(
+            `Socrata returned invalid JSON for ${url}: ${text.slice(0, 80).replace(/\s+/g, " ")}`
+          );
+        }
       }
       const message = `Socrata returned ${response.status} ${response.statusText}`;
       if (response.status >= 500 && attempt < attempts - 1) {

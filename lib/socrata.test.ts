@@ -182,6 +182,34 @@ describe("fetchSodaJson", () => {
     expect(records).toEqual([{ id: "a" }]);
   });
 
+  it("throws a clear error when a 200 response returns HTML instead of JSON (regression: Detroit/Fort Worth/Miami)", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response("<!DOCTYPE html><html><body>Not found</body></html>", {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8" }
+      })
+    );
+    await expect(fetchSodaJson("https://x/y.json")).rejects.toThrow(/non-JSON/);
+  });
+
+  it("throws a clear error when a 200 response claims JSON but has an invalid body", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response("<html>oops</html>", { status: 200, headers: { "Content-Type": "application/json" } })
+    );
+    await expect(fetchSodaJson("https://x/y.json")).rejects.toThrow(/invalid JSON/);
+  });
+
+  it("does not retry a non-JSON 200 response", async () => {
+    const mock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response("<!DOCTYPE html>", { status: 200, headers: { "Content-Type": "text/html" } })
+      );
+    vi.mocked(fetch).mockImplementation(mock);
+    await expect(fetchSodaJson("https://x/y.json", { retries: 2 })).rejects.toThrow(/non-JSON/);
+    expect(mock).toHaveBeenCalledTimes(1);
+  });
+
   it("retries once on a 503 then succeeds", async () => {
     const mock = vi
       .fn()

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { eq, sql } from "drizzle-orm";
 import { subscribers } from "@/lib/db/schema";
+import { filingTypeAnySql } from "@/lib/filings";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ export async function POST() {
       INNER JOIN jurisdictions j ON f.jurisdiction_id = j.id
       WHERE ST_Contains(ST_GeomFromGeoJSON(${serviceArea}), f.geom)
         AND f.filed_at >= NOW() - INTERVAL '7 days'
-        AND f.filing_type = ANY(${filingFilters})
+        AND ${sql.raw(filingTypeAnySql(filingFilters))}
       ORDER BY f.filed_at DESC
       LIMIT 20
     `);
