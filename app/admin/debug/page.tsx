@@ -23,6 +23,12 @@ type Jurisdiction = {
   consecutive_failures: number;
   total_ingested: number;
   total_quarantined: number;
+  last_source_record_at: string | null;
+  last_records_fetched: number;
+  last_new_filings: number;
+  source_newest_date?: string | null;
+  last_error: string | null;
+  sync_status: string;
   watermark_datetime: string | null;
   poll_interval_hours: number | null;
 };
@@ -207,13 +213,17 @@ export default function AdminDebugPage() {
                         Domain: {j.socrata_domain} | Resource: {j.resource_id}
                       </div>
                       <div className="mt-1 text-xs text-stone-500">
-                        Filings: {info.filingCounts[j.id] ?? "?"} | Ingested: {j.total_ingested} | Quarantined: {j.total_quarantined}
+                         Filings: {info.filingCounts[j.id] ?? "?"} | Ingested: {j.total_ingested} | Quarantined: {j.total_quarantined}
                       </div>
                       <div className="mt-1 text-xs text-stone-500">
                          Last attempted: {j.last_attempt_at ? new Date(j.last_attempt_at).toLocaleString() : "Never"}
                          {` | Last successful: ${j.last_success_at ? new Date(j.last_success_at).toLocaleString() : "Never"}`}
                         {` | Interval: ${j.poll_interval_hours ?? 24}h`}
-                        {j.watermark_datetime ? ` | Watermark: ${new Date(j.watermark_datetime).toLocaleDateString()}` : ""}
+                         {j.watermark_datetime ? ` | Watermark: ${new Date(j.watermark_datetime).toLocaleDateString()}` : ""}
+                         {` | Status: ${j.sync_status}`}
+                         {j.last_source_record_at ? ` | Source newest: ${new Date(j.last_source_record_at).toLocaleString()}` : ""}
+                         {` | Fetched: ${j.last_records_fetched} | New: ${j.last_new_filings}`}
+                         {j.last_error ? ` | Error: ${j.last_error}` : ""}
                       </div>
                     </div>
                     <Button

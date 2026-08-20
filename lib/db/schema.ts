@@ -53,6 +53,11 @@ export const jurisdictions = pgTable("jurisdictions", {
   consecutiveFailures: integer("consecutive_failures").default(0).notNull(),
   totalIngested: integer("total_ingested").default(0).notNull(),
   totalQuarantined: integer("total_quarantined").default(0).notNull(),
+  lastSourceRecordAt: timestamp("last_source_record_at"),
+  lastRecordsFetched: integer("last_records_fetched").default(0).notNull(),
+  lastNewFilings: integer("last_new_filings").default(0).notNull(),
+  lastError: text("last_error"),
+  syncStatus: varchar("sync_status", { length: 50 }).default("never").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 

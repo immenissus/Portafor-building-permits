@@ -182,6 +182,8 @@ async function pollJurisdiction(jur: typeof jurisdictions.$inferSelect) {
   let quarantined = 0;
   let totalFetched = 0;
   let batches = 0;
+  let lastSourceRecordAt: Date | null = null;
+  const issuedDateSource = typeof columnFieldMap.issued_date === "string" ? columnFieldMap.issued_date : null;
 
   while (batches < MAX_BATCHES) {
     const watermarkStr = watermark.toISOString().split(".")[0];
@@ -197,6 +199,14 @@ async function pollJurisdiction(jur: typeof jurisdictions.$inferSelect) {
       retries: 1
     });
     totalFetched += rawRecords.length;
+    for (const raw of rawRecords) {
+      const sourceDate = issuedDateSource && typeof raw[issuedDateSource] === "string"
+        ? new Date(`${raw[issuedDateSource]}${/[zZ]|[+-]\d\d:?\d\d$/.test(String(raw[issuedDateSource])) ? "" : "Z"}`)
+        : null;
+      if (sourceDate && !Number.isNaN(sourceDate.getTime()) && (!lastSourceRecordAt || sourceDate > lastSourceRecordAt)) {
+        lastSourceRecordAt = sourceDate;
+      }
+    }
     if (rawRecords.length === 0) break;
 
     const candidates: Candidate[] = [];
@@ -283,11 +293,36 @@ async function pollJurisdiction(jur: typeof jurisdictions.$inferSelect) {
       lastPolledAt: new Date(),
       lastSuccessAt: new Date(),
       totalIngested: jur.totalIngested + newFilings,
-      totalQuarantined: jur.totalQuarantined + quarantined
+      totalQuarantined: jur.totalQuarantined + quarantined,
+      lastSourceRecordAt,
+      lastRecordsFetched: totalFetched,
+      lastNewFilings: newFilings,
+      lastError: null,
+      syncStatus: totalFetched === 0 ? "empty" : "healthy"
     })
     .where(eq(jurisdictions.id, jur.id));
 
   return { status: "success", recordsFetched: totalFetched, newFilings, alertsDispatched, quarantined, batches };
+}
+
+async function probeSourceNewestDate(jur: typeof jurisdictions.$inferSelect): Promise<Date | null> {
+  const map = jur.columnFieldMap as ColumnFieldMap;
+  const dateField = typeof map.issued_date === "string" ? map.issued_date : null;
+  if (!dateField) return null;
+
+  const url = buildSodaUrl(jur.socrataDomain, jur.resourceId, {
+    order: `${dateField} DESC`,
+    limit: 1
+  });
+  const rows = await fetchSodaJson(url, {
+    appToken: jur.appToken ?? undefined,
+    timeoutMs: FETCH_TIMEOUT_MS,
+    retries: 1
+  });
+  const value = rows[0]?.[dateField];
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const date = new Date(`${value}${/[zZ]|[+-]\d\d:?\d\d$/.test(String(value)) ? "" : "Z"}`);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 export async function GET(request: Request) {
@@ -341,16 +376,36 @@ export async function GET(request: Request) {
         .set({ lastAttemptAt: attemptAt })
         .where(eq(jurisdictions.id, jur.id));
       try {
+        let sourceNewestDate: Date | null = null;
+        let sourceProbeError: string | null = null;
+        try {
+          sourceNewestDate = await probeSourceNewestDate(jur);
+        } catch (probeError) {
+          sourceProbeError = probeError instanceof Error ? probeError.message : String(probeError);
+        }
         const outcome = await pollJurisdiction(jur);
-        report.details.push({ jurisdiction: jur.name, ...outcome });
+        await db
+          .update(jurisdictions)
+          .set({ lastSourceRecordAt: sourceNewestDate })
+          .where(eq(jurisdictions.id, jur.id));
+        report.details.push({
+          jurisdiction: jur.name,
+          ...outcome,
+          sourceNewestDate: sourceNewestDate?.toISOString() ?? null,
+          sourceProbeError
+        });
         report.jurisdictionsProcessed++;
         report.totalNewFilings += outcome.newFilings;
         report.totalMatchedAlerts += outcome.alertsDispatched;
       } catch (err) {
         console.error(`Failed to poll ${jur.name}:`, err);
-        await db
-          .update(jurisdictions)
-          .set({ consecutiveFailures: jur.consecutiveFailures + 1 })
+      await db
+        .update(jurisdictions)
+        .set({
+          consecutiveFailures: jur.consecutiveFailures + 1,
+          lastError: err instanceof Error ? err.message : String(err),
+          syncStatus: "failed"
+        })
           .where(eq(jurisdictions.id, jur.id));
         report.details.push({
           jurisdiction: jur.name,

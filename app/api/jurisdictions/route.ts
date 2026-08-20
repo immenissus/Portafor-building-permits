@@ -23,10 +23,16 @@ export async function GET(request: Request) {
         pollIntervalHours: jurisdictions.pollIntervalHours,
         isActive: jurisdictions.isActive,
         lastPolledAt: jurisdictions.lastPolledAt,
+        lastAttemptAt: jurisdictions.lastAttemptAt,
         lastSuccessAt: jurisdictions.lastSuccessAt,
         consecutiveFailures: jurisdictions.consecutiveFailures,
         totalIngested: jurisdictions.totalIngested,
         totalQuarantined: jurisdictions.totalQuarantined,
+        lastSourceRecordAt: jurisdictions.lastSourceRecordAt,
+        lastRecordsFetched: jurisdictions.lastRecordsFetched,
+        lastNewFilings: jurisdictions.lastNewFilings,
+        lastError: jurisdictions.lastError,
+        syncStatus: jurisdictions.syncStatus,
         createdAt: jurisdictions.createdAt
       })
       .from(jurisdictions);
